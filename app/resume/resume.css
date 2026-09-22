@@ -1,0 +1,301 @@
+/* ---------------------------------------------------------------------------
+   一页纸简历：屏幕上按 A4 纸的样子预览，打印时正好铺满一张 A4。
+   层级只靠三档颜色拉：墨色正文 / 灰蓝次要 / 深蓝点缀，不放色块与插图，
+   面试官扫一眼就知道你是谁、会什么、做过什么。
+   --------------------------------------------------------------------------- */
+
+@page {
+  size: A4;
+  margin: 13mm 14mm;
+}
+
+.rs-page {
+  --rs-ink: #14161c;
+  --rs-sub: #2b3040;
+  --rs-muted: #5b6273;
+  --rs-line: #dfe3ea;
+  --rs-accent: #17457a;
+
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 13mm 14mm;
+  background: #ffffff;
+  color: var(--rs-ink);
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei",
+    "PingFang SC", "HarmonyOS Sans SC", "Noto Sans SC", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.58;
+  /* 打印时要保留描边与少量底色 */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ---------------------------- 屏幕预览 ---------------------------- */
+
+@media screen {
+  body {
+    background: #e9ebf0 !important;
+  }
+  .rs-page {
+    margin: 26px auto 40px;
+    box-shadow: 0 12px 44px rgba(15, 23, 42, 0.2);
+  }
+}
+
+.rs-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 210mm;
+  margin: 24px auto 0;
+  font-size: 13px;
+  color: #3d4353;
+}
+
+.rs-hint b {
+  font-weight: 600;
+  color: #17457a;
+}
+
+.rs-hint-btn {
+  display: inline-block;
+  padding: 7px 16px;
+  border-radius: 6px;
+  background: #17457a;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+/* ------------------------------ 抬头 ------------------------------ */
+
+.rs-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10mm;
+  padding-bottom: 3.6mm;
+  border-bottom: 0.7mm solid var(--rs-accent);
+}
+
+.rs-name {
+  margin: 0;
+  font-size: 23pt;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.14em;
+}
+
+.rs-role {
+  margin: 2mm 0 0;
+  font-size: 10.5pt;
+  color: var(--rs-muted);
+  letter-spacing: 0.04em;
+}
+
+/* 联系方式排成两列四格，抬头就不会被撑成一根竖条 */
+.rs-contact {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: end;
+  column-gap: 6mm;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 9.5pt;
+  line-height: 1.85;
+  color: var(--rs-muted);
+  text-align: right;
+}
+
+.rs-contact a {
+  color: var(--rs-accent);
+  text-decoration: none;
+}
+
+/* ------------------------------ 正文 ------------------------------ */
+
+.rs-summary {
+  margin: 4mm 0 0;
+  color: var(--rs-sub);
+  text-align: justify;
+}
+
+.rs-sec {
+  margin-top: 4.8mm;
+}
+
+/* 纸面分两栏：主栏是面试官最想先看的作品与经历，右栏放教育、认证、技能。
+   一页纸装不下的量，靠分栏而不是删内容来收。 */
+.rs-body {
+  display: grid;
+  grid-template-columns: 1fr 74mm;
+  column-gap: 8mm;
+  margin-top: 4.8mm;
+}
+
+.rs-body .rs-sec {
+  margin-top: 0;
+}
+
+.rs-body .rs-sec + .rs-sec {
+  margin-top: 4.6mm;
+}
+
+.rs-side {
+  padding-left: 7mm;
+  border-left: 0.3mm solid var(--rs-line);
+}
+
+/* 右栏窄，认证列表就单列排 */
+.rs-side .rs-certs {
+  grid-template-columns: 1fr;
+}
+
+.rs-h2 {
+  margin: 0 0 2.2mm;
+  padding-left: 3mm;
+  border-left: 1.1mm solid var(--rs-accent);
+  font-size: 11.5pt;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+}
+
+.rs-h2 small {
+  margin-left: 2.4mm;
+  font-size: 9.5pt;
+  font-weight: 400;
+  color: var(--rs-muted);
+}
+
+/* 教育背景：一行院校专业，一行方向说明 */
+.rs-edu-name {
+  display: block;
+  font-size: 10.8pt;
+}
+
+/* 代表作品 / 实践经历：标题 + 一句说明 + 标签 */
+.rs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2.4mm;
+}
+
+.rs-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6mm;
+}
+
+.rs-item-head b {
+  font-size: 10.8pt;
+}
+
+.rs-item-head a {
+  font-size: 9pt;
+  color: var(--rs-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.rs-item-head i {
+  font-style: normal;
+  font-size: 9.2pt;
+  color: var(--rs-muted);
+  white-space: nowrap;
+}
+
+.rs-desc {
+  margin: 0.7mm 0 0;
+  color: var(--rs-sub);
+}
+
+.rs-tags {
+  margin: 0.7mm 0 0;
+  font-size: 9pt;
+  color: var(--rs-muted);
+}
+
+/* 认证：两列排满，紧凑但不挤 */
+.rs-certs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 9mm;
+  row-gap: 1.6mm;
+}
+
+.rs-cert-name {
+  display: block;
+  font-size: 10.2pt;
+  font-weight: 600;
+}
+
+.rs-cert-i {
+  margin: 0.3mm 0 0;
+  font-size: 9pt;
+  color: var(--rs-muted);
+}
+
+/* 技能与工具：标签内联在句首，占满整行宽，两行就说完 */
+.rs-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1.2mm;
+}
+
+.rs-row p {
+  margin: 0;
+  color: var(--rs-sub);
+}
+
+.rs-row-key {
+  font-weight: 600;
+  color: var(--rs-accent);
+}
+
+.rs-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6mm;
+  margin-top: 4mm;
+  padding-top: 2.4mm;
+  border-top: 1px solid var(--rs-line);
+  font-size: 9pt;
+  color: var(--rs-muted);
+}
+
+/* ------------------------------ 打印 ------------------------------ */
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  .rs-page {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+  .rs-hint {
+    display: none !important;
+  }
+  .rs-page a {
+    color: inherit;
+    text-decoration: none;
+  }
+}

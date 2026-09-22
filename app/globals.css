@@ -1,0 +1,328 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border !scroll-smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* 拉丁字母用系统 UI 字体，中文回退到系统里最好看的黑体。
+       全部走系统字体，不依赖 Google Fonts，构建和访问都不受网络影响。 */
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
+      "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC",
+      "Hiragino Sans GB", sans-serif;
+    /* 中文在正文尺寸下需要更松的行距才好读 */
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    @apply active:outline-none;
+  }
+
+  :root {
+    /* 解说板的设计尺寸。空间里它就按这个尺寸 1:1 呈现，改这里要同步改
+       components/ui/Scene3D.tsx 里的 BOARD_* 常量。 */
+    --board-w: 1000px;
+    --board-h: 600px;
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------------
+     空间结构：页面上每个区块 = 长廊里的一间房，区块正文 = 房里那块解说板。
+     默认（窄屏 / 减少动效 / 没有 WebGL）区块就是普通的一页，从上往下读；
+     加上 html.spatial-on 之后，板子交给 Scene3D 每帧摆进房间里（transform
+     由脚本直写，所以这里只管它长什么样）。
+     --------------------------------------------------------------------- */
+  /* 一个区块就是一间房。默认（窄屏 / 减少动效 / 没有 WebGL）它就是普通的一屏，
+     板子居中、内容自然往下排，该怎么读就怎么读。 */
+  .stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+  }
+  /* 顶上的固定导航在窄屏会压住第一屏，默认排版下让出一条 */
+  .stage:first-of-type {
+    padding-top: 136px;
+  }
+
+  /* 解说板本体：一块立在空间里的积木屏。换 accent 就换了这间展位的颜色。
+     描边和投影全部用 box-shadow 画 —— 不占布局，空间模式下跟着 scale 一起缩，
+     板子内部那 920×536 的排版区一像素都不会被挤到。 */
+  .board {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 100%;
+    max-width: var(--board-w);
+    padding: 24px 20px;
+    border-radius: 12px;
+    background: linear-gradient(
+      158deg,
+      rgba(14, 18, 52, 0.98) 0%,
+      rgba(5, 8, 28, 0.98) 100%
+    );
+    box-shadow: 0 0 0 3px #04061a,
+      0 0 0 5px rgb(var(--board-accent, 167 139 250) / 0.75),
+      6px 7px 0 4px rgba(0, 0, 0, 0.45),
+      inset 0 2px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -4px 0 rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+  }
+  @media (min-width: 640px) {
+    .board {
+      padding: 28px 32px;
+    }
+  }
+  /* 1024px 以上才会进空间模式，板子固定 1000×600，左右各留 40px 内衬 */
+  @media (min-width: 1024px) {
+    .board {
+      padding: 32px 40px;
+      box-shadow: 0 0 0 3px #04061a,
+        0 0 0 6px rgb(var(--board-accent, 167 139 250) / 0.8),
+        11px 13px 0 6px rgba(0, 0, 0, 0.5),
+        inset 0 2px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -4px 0 rgba(0, 0, 0, 0.45);
+    }
+  }
+  /* 顶上一道亮边 + 一排积木凸点 */
+  .board::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 16px;
+    background-image: linear-gradient(
+        90deg,
+        transparent,
+        rgb(var(--board-accent, 167 139 250) / 0.9),
+        transparent
+      ),
+      radial-gradient(
+        circle at 9px 10px,
+        rgb(var(--board-accent, 167 139 250) / 0.5) 3.2px,
+        transparent 4px
+      );
+    background-size: 100% 3px, 34px 16px;
+    background-position: 0 0, 12px 0;
+    background-repeat: no-repeat, repeat-x;
+  }
+  /* 从上打下来的一点光晕 */
+  .board::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      130% 70% at 50% -20%,
+      rgb(var(--board-accent, 167 139 250) / 0.14),
+      transparent 62%
+    );
+  }
+
+  /* 板内排版：标题留固定高度，正文区撑满剩下的空间 */
+  .board-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .board-title {
+    @apply font-bold text-[22px] leading-tight md:text-[26px];
+    letter-spacing: 0.01em;
+    /* 乐高说明书那种「一块亮色积木」的标题：左边压一条实心色块 */
+    border-left: 7px solid rgb(var(--board-accent, 167 139 250));
+    border-radius: 2px;
+    padding-left: 13px;
+  }
+  .board-sub {
+    @apply mt-2 text-[12px] leading-relaxed text-white-200 md:text-[13px];
+  }
+
+  /* 空间模式下的板子：脱离文档流摆到房间的位置上，transform 由脚本每帧写。
+     第一帧算好之前先藏着，免得在左上角闪一下。 */
+  html.spatial-on .stage {
+    min-height: 100vh;
+    padding: 0;
+  }
+  html.spatial-on .board {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--board-w);
+    height: var(--board-h);
+    max-width: none;
+    padding: 32px 40px;
+    transform: none;
+    visibility: hidden;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+
+  /* 8 个展位的配色：乐高那种高饱和亮色，一间隔一间都不一样。
+     改这里要同步改 components/ui/Scene3D.tsx 里 STATIONS 的 accent。 */
+  .board[data-board="hero"] {
+    --board-accent: 255 207 0;
+  }
+  .board[data-board="projects"] {
+    --board-accent: 47 127 240;
+  }
+  .board[data-board="approach"] {
+    --board-accent: 255 138 0;
+  }
+  .board[data-board="certs"] {
+    --board-accent: 0 163 218;
+  }
+  .board[data-board="about"] {
+    --board-accent: 176 224 26;
+  }
+  .board[data-board="experience"] {
+    --board-accent: 229 0 125;
+  }
+  .board[data-board="skills"] {
+    --board-accent: 37 167 69;
+  }
+  .board[data-board="contact"] {
+    --board-accent: 227 0 11;
+  }
+
+  /* 板子里的卡片：一块能拼起来的小积木 —— 粗描边 + 硬投影 + 小圆角 */
+  .brick {
+    position: relative;
+    border: 2px solid rgb(var(--board-accent, 167 139 250) / 0.45);
+    border-radius: 10px;
+    background: linear-gradient(158deg, #10143a 0%, #0a0d28 100%);
+    box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.45),
+      inset 0 2px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* 标签、词条：一块小颗粒积木 */
+  .brick-chip {
+    border-radius: 6px;
+    border: 2px solid rgb(var(--board-accent, 167 139 250) / 0.5);
+    background: rgb(var(--board-accent, 167 139 250) / 0.14);
+    font-weight: 500;
+  }
+
+  /* 按钮：一块实心亮色积木，按下去会「咔」一下 */
+  .toy-btn {
+    background: rgb(var(--board-accent, 203 172 249));
+    color: #070a1e;
+    border: 2px solid rgba(0, 0, 0, 0.75);
+    border-radius: 10px;
+    box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.5);
+    font-weight: 700;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .toy-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+  }
+  .toy-btn:active {
+    transform: translateY(1px);
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  /* 次要按钮：同一套积木外观，但用深色底 + 描边，和主按钮并排时不抢戏 */
+  .toy-btn-ghost {
+    background: #10143a;
+    color: #ffffff;
+    border: 2px solid rgb(var(--board-accent, 203 172 249));
+    border-radius: 10px;
+    box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.5);
+    font-weight: 700;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+  }
+  .toy-btn-ghost:hover {
+    transform: translateY(-2px);
+    box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+    color: rgb(var(--board-accent, 203 172 249));
+  }
+  .toy-btn-ghost:active {
+    transform: translateY(1px);
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+}
+
+@layer utilities {
+  /* 板内的紫色强调一律跟着这间展位的配色走 —— 8 块板各有各的颜色。
+     放在 utilities 层里、选择器又更长，稳压住 Tailwind 的 .text-purple */
+  .board .text-purple {
+    color: rgb(var(--board-accent, 203 172 249));
+  }
+
+  .heading {
+    @apply font-bold text-4xl md:text-5xl text-center;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+  }
+}
