@@ -508,15 +508,17 @@
   pointer-events: none;
 }
 
-/* 房名牌：投影到各自门洞上方。初始 opacity 0，脚本接管后才逐个亮起来 */
+/* 房名牌：投影到各自门洞上方。初始 opacity 0，脚本接管后才逐个亮起来。
+   两行：上面是序号 + 房名，下面是屋里那句话。 */
 .hall-plate {
   position: absolute;
   top: 0;
   left: 0;
   display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 16px 9px;
   border: 2px solid rgba(0, 0, 0, 0.8);
   border-radius: 9px;
   background: rgba(22, 29, 77, 0.95);
@@ -531,6 +533,11 @@
   transition: border-color 0.15s ease;
   /* 缩放写在 transform 里，这里不能加 transition，否则每帧都在补间 */
   will-change: transform;
+}
+.hall-plate-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 .hall-plate:hover {
   border-color: color-mix(in srgb, var(--plate-accent, #2f7ff0) 70%, #ffffff);
@@ -551,6 +558,13 @@
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.06em;
+}
+/* 屋里那句话：比房名淡一档，是补充信息，不该抢主体 */
+.hall-plate-blurb {
+  color: #aab3d8;
+  font-size: 11.5px;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
 }
 
 /* 门厅提示：一块乐高积木按钮 */

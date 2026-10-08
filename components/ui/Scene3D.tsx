@@ -40,6 +40,7 @@ import * as THREE from "three";
 import { FaArrowLeft, FaArrowRight, FaDoorOpen } from "react-icons/fa6";
 
 import { registerRoomEnter } from "@/lib/spatial";
+import { roomBlurbs } from "@/data";
 
 /* ============================== 空间尺寸表 ============================== */
 
@@ -75,9 +76,10 @@ const DOCK_R = BOARD_R - DOCK_DIST;
 /** 门洞尺寸 */
 const DOOR_W = 3.4;
 const DOOR_H = 4.3;
-/** 房名牌：抬到门楣上方多高，以及在空间里做多高（世界单位） */
-const PLATE_LIFT = 1.0;
-const PLATE_WORLD_H = 0.82;
+/** 房名牌：抬到门楣上方多高，以及在空间里做多高（世界单位）。
+    牌子是两行（房名 + 一句话概括），所以比单行牌子高一档。 */
+const PLATE_LIFT = 0.95;
+const PLATE_WORLD_H = 0.95;
 
 /** 门厅墙的边长（正八边形）。八边形外接半径要按这个反推，地面才和墙严丝合缝 */
 const HUB_SIDE = 2 * R_HUB * Math.tan(Math.PI / 8);
@@ -1077,12 +1079,16 @@ const Scene3D = () => {
               className="hall-plate"
               style={{ ["--plate-accent" as string]: room.accent }}
               onClick={() => enter(i)}
-              aria-label={`推门进入${room.label}`}
+              aria-label={`推门进入${room.label}：${roomBlurbs[room.id] ?? ""}`}
             >
-              <span className="hall-plate-no">
-                {String(i + 1).padStart(2, "0")}
+              <span className="hall-plate-top">
+                <span className="hall-plate-no">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="hall-plate-name">{room.label}</span>
               </span>
-              <span className="hall-plate-name">{room.label}</span>
+              {/* 门口的一句话：让人在推门之前就知道里面有什么 */}
+              <span className="hall-plate-blurb">{roomBlurbs[room.id]}</span>
             </button>
           ))}
 
