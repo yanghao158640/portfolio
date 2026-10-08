@@ -1,8 +1,11 @@
 import { practices } from "@/data";
 
+import ContributionGraph from "./ContributionGraph";
+
 /**
  * 实践房。三张静态卡并排，序号是主要的视觉锚点 ——
  * 板子本身会被相机带进带出，这里不再做悬浮才显示内容的交互。
+ * 卡片下方挂一条「持续产出」热力图，说明这些不是一次性做出来的。
  */
 const Approach = () => {
   return (
@@ -14,7 +17,7 @@ const Approach = () => {
           </h2>
           <p className="board-sub">除了完整作品，平时也在做这些小工具。</p>
 
-          <div className="mt-6 grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-5 grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {practices.map((item, index) => (
               <div
                 key={item.id}
@@ -45,6 +48,9 @@ const Approach = () => {
               </div>
             ))}
           </div>
+
+          {/* 热力图挂在卡片下方，高度固定 —— 板子总高不变，相机停靠点就不会偏 */}
+          <ContributionGraph />
         </div>
       </div>
     </section>

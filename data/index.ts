@@ -39,6 +39,19 @@ export type Project = {
   link: string;
   /** 卡片右上角悬浮时显示的文字 */
   linkLabel: string;
+  /**
+   * 详情层的内容。面试官看到的往往只是一个能玩的游戏，
+   * 却不知道你在里面具体做了什么 —— 这几段就是补上这一层。
+   * 不填的话，卡片仍然只有「打开作品」这一个动作，不会报错。
+   */
+  detail?: {
+    /** 一句话概括这个项目在解决什么 */
+    summary: string;
+    /** 技术要点，每条一句话 */
+    points: string[];
+    /** 进去之后先看哪里 —— 帮访客快速看到最有意思的部分 */
+    tryThis: string;
+  };
 };
 
 export type ExperienceItem = {
@@ -217,6 +230,19 @@ export const projects: Project[] = [
     tags: ["JavaScript", "Canvas", "游戏"],
     link: "https://yanghao158640.github.io/competition-bootcamp/tank-game.html",
     linkLabel: "在线试玩",
+    detail: {
+      summary:
+        "想验证一件事：不装任何游戏引擎、不拆成多个文件，只用原生 JavaScript 能不能做出一个完整能玩的游戏。",
+      points: [
+        "全程原生 JavaScript，零第三方库、零构建步骤，单个文件就能跑",
+        "用 Canvas 逐帧绘制，自己处理画面刷新与上一帧的清理",
+        "键盘输入直接驱动坦克的移动与开火",
+        "自己写碰撞检测，判定子弹与坦克的命中",
+        "关卡节奏随进度收紧，越往后压力越大",
+      ],
+      tryThis:
+        "直接用键盘操控开打。重点感受两处：打击判定准不准，以及难度是怎么一关关爬上去的。",
+    },
   },
   {
     id: 2,
@@ -226,6 +252,18 @@ export const projects: Project[] = [
     tags: ["JavaScript", "Canvas", "游戏"],
     link: "https://yanghao158640.github.io/plane-game/",
     linkLabel: "在线试玩",
+    detail: {
+      summary:
+        "在第一款游戏之后，把「敌机批量刷新 + BOSS + 计分」这套更完整的战斗循环走通一遍。",
+      points: [
+        "一个逐帧循环驱动整局，把生成、更新、渲染三个阶段分开写",
+        "敌机与 BOSS 按节奏分批刷新，难度随时间往上走",
+        "碰撞判定要同时管住玩家、子弹、敌机三方",
+        "计分系统把整局战果记录下来",
+      ],
+      tryThis:
+        "打到 BOSS 出现的那一关。那里是刷新节奏和碰撞判定最吃紧的地方，也是这一版相比上一款进步最大的部分。",
+    },
   },
   {
     id: 3,
@@ -235,6 +273,17 @@ export const projects: Project[] = [
     tags: ["HTML", "演示文稿", "机器学习"],
     link: "https://yanghao158640.github.io/competition-bootcamp/ml-report/",
     linkLabel: "在线查看",
+    detail: {
+      summary:
+        "把吴恩达《机器学习》课程的核心概念，整理成一份不用下载、打开就能翻的汇报材料。",
+      points: [
+        "13 页 HTML 演示文稿，做成能直接在线翻阅的形式",
+        "概念是按自己的理解重新组织的，不是把讲义照搬一遍",
+        "纯 HTML 实现，不依赖 PowerPoint 或任何演示工具",
+      ],
+      tryThis:
+        "从第一页往下翻。看的是「一个概念被怎么拆开重讲」——同一份讲义，讲法能看出理解到哪一层。",
+    },
   },
 ];
 

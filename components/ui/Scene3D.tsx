@@ -1,26 +1,29 @@
 "use client";
 
 /**
- * 全站 3D 空间 —— 环形旋转展厅
+ * 全站 3D 空间 —— 推门进入的八房大厅
  * ---------------------------------------------------------------------------
- * 页面上每一个区块 = 圆厅里沿墙排布的一个展位，8 个展位均分一圈（每 45° 一格）：
+ * 页面上每一个区块 = 大厅里的一间房，8 间均分一圈（每 45° 一间）：
  *
- *   入口展位 → 作品 → 实践 → 证书 → 关于 → 经历 → 技能 → 联系
+ *   大厅 → 作品房 → 实践房 → 证书房 → 关于房 → 经历房 → 技能房 → 联系房
  *
- * 每个展位正对圆心立着一台「解说板」——那就是这个区块的正文本身（DOM 里那块
- * .board）。它不是浮在页面上方的卡片，而是摆进圆厅的一件陈设：每帧把这块板在
- * 空间里的平面投影到屏幕上，再把 translate/scale 写回元素。
+ * 中央是八角门厅，8 扇门各挂一块房名牌（DOM 投影上去，中文清晰、键盘可聚焦）。
+ * 点门或点房名牌 → 镜头先转向那扇门 → 门往房间里推开 → 走过去穿过门洞 →
+ * 停在那间房外墙上的解说板前，板子 1:1 铺在正前方。
  *
- * 相机站在比板子更靠里的轨道上、面朝外，滚动时沿着圆环转过去 —— 所以整站是
- * 「转」着看完的：外墙色带、隔墙、地面同心环依次从身边扫过，转得快时机身轻轻
- * 侧倾一下，像坐旋转木马。落位时相机正好停在那间展位正前方、视线锁着板心，
- * 板子的投影是 1:1 —— 字就是设计时的大小，而且纹丝不动地居中。
+ * 每个区块的正文就是那间房墙上的「解说板」—— DOM 里那块 .board，不是浮在
+ * 页面上方的卡片。每帧把这块板在空间里的平面投影到屏幕上，再把
+ * translate/scale 写回元素。所以正文只有一份：不会出现「正文和 3D 各显示
+ * 一遍」的重影，中文清晰、可选中、可点、可被搜索。
  *
- * 这样做的好处：正文只有一份，不会出现「正文和 3D 各显示一遍」的重影；
- * 中文清晰、可选中、可点、可被搜索，同时又确实活在空间里。
+ * 导航不再是滚动：
+ *   · 门厅里滚轮左右转，看清 8 扇门；
+ *   · 站内所有指着房间的 # 锚点由本组件统一拦截（导航栏、Hero 按钮都能用）；
+ *   · 命令面板走 lib/spatial.ts 的 enterRoom；
+ *   · 房间里底部有「上一间 / 回到门厅 / 下一间」。
  *
  * 窄屏 / 系统开启「减少动态效果」/ 不支持 WebGL 时整层退回静态渐变，
- * 摘掉 html.spatial-on，区块回到普通文档流，页面照常可读可点。
+ * 摘掉 html.spatial-on，区块回到普通文档流，页面照常可读可点、也能滚动。
  * ---------------------------------------------------------------------------
  */
 
@@ -32,492 +35,517 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { FaArrowLeft, FaArrowRight, FaDoorOpen } from "react-icons/fa6";
+
+import { registerRoomEnter } from "@/lib/spatial";
 
 /* ============================== 空间尺寸表 ============================== */
 
 const SPACE_COLOR = "#05071f";
-
-/** 相机站在地面上的视高，圆厅地面统一在 y = 0 */
-const EYE = 2.2;
-
-/** 圆厅层高 */
-const ROOM_H = 10;
 
 /** 解说板：DOM 里那块是 1000×600，在空间里高 5.8 个世界单位 */
 const BOARD_PX_W = 1000;
 const BOARD_PX_H = 600;
 const BOARD_H = 5.8;
 const BOARD_W = (BOARD_H * BOARD_PX_W) / BOARD_PX_H;
-/** 板子底边离地高度，以及板心的世界 y */
-const BOARD_BOTTOM = 0.35;
+
+/** 相机视高 */
+const EYE = 2.4;
+/** 层高 */
+const CEIL_H = 6.6;
+
+/** 门厅：正八边形的内切半径。边长 ≈ 12.0，正好等于房宽，接缝才不会有缺口 */
+const R_HUB = 14.5;
+/** 房间宽度，和门厅的边长对齐 */
+const ROOM_W = 12.0;
+/** 房间外沿：从门厅墙往外 16 个单位 */
+const R_OUT = 30.5;
+
+/** 板面离圆心的距离，以及板底离地高度 */
+const BOARD_R = R_OUT - 0.55;
+const BOARD_BOTTOM = 0.5;
 const BOARD_MID_Y = BOARD_BOTTOM + BOARD_H / 2;
-/** 相机停靠点到解说板的距离。这个距离下 1000×600 正好 1:1 铺满屏幕中间区域
-    （相机在 2.2 处抬着头看板心，投影略小于正视，所以比 10.5 稍近一点） */
-const BOARD_DIST = 10.1;
 
-/**
- * 圆厅半径表。板子贴在 R_BOARD 这一圈上：板面与圆相切、正面朝里对着圆心，
- * 相机在更靠里的 R_CAM 轨道上朝外看它。
- */
-const R_BOARD = 26;
-/** 外墙 */
-const R_OUTER = 30.2;
-/** 中央立柱，圆厅的「圆心」 */
-const R_HUB = 7;
-/** 隔墙内端半径：从板子往里伸出来的短墙，把一圈分成 8 个展位 */
-const R_DIV_IN = R_BOARD - 4.2;
+/** 相机停靠点离圆心的距离。这个距离下 1000×600 投影出来接近 1:1 */
+const DOCK_DIST = 10.1;
+const DOCK_R = BOARD_R - DOCK_DIST;
 
-/** 8 个展位均分一圈 */
-const RING_STEP = (Math.PI * 2) / 8;
+/** 门洞尺寸 */
+const DOOR_W = 3.4;
+const DOOR_H = 4.3;
+/** 房名牌：抬到门楣上方多高，以及在空间里做多高（世界单位） */
+const PLATE_LIFT = 1.0;
+const PLATE_WORLD_H = 0.82;
 
-/** 相机轨道半径：板子往里 BOARD_DIST 处。随视口高低变的是 BOARD_DIST，圆厅本身不动 */
-const R_CAM = R_BOARD - BOARD_DIST;
+/** 门厅墙的边长（正八边形）。八边形外接半径要按这个反推，地面才和墙严丝合缝 */
+const HUB_SIDE = 2 * R_HUB * Math.tan(Math.PI / 8);
+const HUB_CIRCUM = R_HUB / Math.cos(Math.PI / 8);
 
-const WALL_COLOR = "#0c1130";
-const FLOOR_COLOR = "#0a0e28";
-const HUB_COLOR = "#151c46";
-const TILE_COLOR = "#0d1338";
+/** 走一段路要多久、转身要多久 */
+const WALK_SECONDS = 2.6;
+const TURN_SECONDS = 0.7;
 
-/** 地面同心环的半径：一眼看出这是个圆厅 */
-const FLOOR_RINGS = [11.6, 16.4, 21.2, 26.2];
-
-/** 外墙上色带的高度 */
-const BAND_Y = 7.6;
-
-/**
- * 相机到板子的实际距离，随视口高度伸缩：视口矮就往前站一点，板子不至于缩成看不清的一小块。
- * 0.6 次方是折中 —— 板子始终占视口高的 0.6～0.85，正文落在 11～14px 之间；
- * 圆厅几何完全不动，动的只是相机站在哪一圈轨道上。
- */
-const viewDist = () => {
-  const k = Math.min(1, Math.max(0.72, Math.pow(window.innerHeight / 900, 0.6)));
-  return BOARD_DIST * k;
+const COL = {
+  floor: "#161d4d",
+  hubFloor: "#1a2258",
+  wall: "#141a44",
+  ceil: "#121746",
+  door: "#1b2461",
+  frame: "#2f7ff0",
+  stud: "#ffcf00",
 };
 
-type ViewRef = React.MutableRefObject<number>;
-type TargetAngle = React.MutableRefObject<number>;
-type AngleRef = React.MutableRefObject<number>;
-
-type Station = {
-  /** 区块 id，也是 DOM 里 [data-board="…"] 的值 */
+/**
+ * 8 间房。id 同时是 DOM 里 [data-board="…"] 的值，顺序必须和
+ * app/page.tsx 里 8 个区块的顺序一致，否则房名会和墙上的正文对不上。
+ * accent 也要和 globals.css 里 .board[data-board="…"] 的 --board-accent 保持一致。
+ */
+type Room = {
   id: string;
-  /** 这个展位在圆厅里的角度：0 在 +z 轴上，顺时针每格 45° */
-  angle: number;
-  /** 这间展位的配色，墙面色带、地砖、隔墙都用它 */
+  label: string;
   accent: string;
+  angle: number;
 };
 
-const STATIONS: Station[] = [
-  { id: "hero", angle: RING_STEP * 0, accent: "#ffcf00" },
-  { id: "projects", angle: RING_STEP * 1, accent: "#2f7ff0" },
-  { id: "approach", angle: RING_STEP * 2, accent: "#ff8a00" },
-  { id: "certs", angle: RING_STEP * 3, accent: "#00a3da" },
-  { id: "about", angle: RING_STEP * 4, accent: "#b0e01a" },
-  { id: "experience", angle: RING_STEP * 5, accent: "#e5007d" },
-  { id: "skills", angle: RING_STEP * 6, accent: "#25a745" },
-  { id: "contact", angle: RING_STEP * 7, accent: "#e3000b" },
-];
+const ROOMS: Room[] = [
+  { id: "hero", label: "大厅", accent: "#ffcf00" },
+  { id: "projects", label: "作品房", accent: "#2f7ff0" },
+  { id: "approach", label: "实践房", accent: "#ff8a00" },
+  { id: "certs", label: "证书房", accent: "#00a3da" },
+  { id: "about", label: "关于房", accent: "#b0e01a" },
+  { id: "experience", label: "经历房", accent: "#e5007d" },
+  { id: "skills", label: "技能房", accent: "#25a745" },
+  { id: "contact", label: "联系房", accent: "#e3000b" },
+].map((room, i) => ({ ...room, angle: (i * Math.PI * 2) / 8 }));
 
-/** 圆环上的坐标：角度 a、半径 r 处的 (x, z) */
-const ringX = (a: number, r: number) => Math.sin(a) * r;
-const ringZ = (a: number, r: number) => Math.cos(a) * r;
+const roomIndex = (id: string) => ROOMS.findIndex((r) => r.id === id);
 
-/* ------------------------------ 通用零件 ------------------------------ */
+/** 镜头这一帧站在哪：0 = 门厅，1 = 停在该房板子前 */
+type View = {
+  progress: number;
+  hubYaw: number;
+  /** 正在走向哪间房；-1 表示在门厅 */
+  target: number;
+};
 
-/** 细长的发光条：墙面色带、隔墙灯都用它 */
-const GlowBar = ({
-  position,
-  size,
-  color,
-  opacity = 0.9,
-}: {
-  position: [number, number, number];
-  size: [number, number, number];
-  color: string;
-  opacity?: number;
-}) => (
-  <mesh position={position}>
-    <boxGeometry args={size} />
-    <meshBasicMaterial color={color} transparent opacity={opacity} />
-  </mesh>
-);
+/* ---------------------------- 几个基础件 ---------------------------- */
 
-/** 积木本体：墙、地面、地砖、板框都用它。低粗糙度 + 平面着色 = 玩具块面感 */
 const Slab = ({
   position,
   size,
   color,
-  emissive,
-  intensity = 0.25,
 }: {
   position: [number, number, number];
   size: [number, number, number];
   color: string;
-  emissive?: string;
-  intensity?: number;
+}) => (
+  <mesh position={position}>
+    <boxGeometry args={size} />
+    <meshStandardMaterial color={color} roughness={0.9} metalness={0.02} flatShading />
+  </mesh>
+);
+
+/** 顶上一颗凸点 —— 乐高的「stud」 */
+const Stud = ({
+  position,
+  color,
+}: {
+  position: [number, number, number];
+  color: string;
+}) => (
+  <mesh position={position}>
+    <cylinderGeometry args={[0.16, 0.16, 0.14, 10]} />
+    <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.35} roughness={0.6} />
+  </mesh>
+);
+
+/** 发光的细条：门框、腰线、地面导引线都用它 */
+const GlowBar = ({
+  position,
+  size,
+  color,
+  dim = false,
+}: {
+  position: [number, number, number];
+  size: [number, number, number];
+  color: string;
+  dim?: boolean;
 }) => (
   <mesh position={position}>
     <boxGeometry args={size} />
     <meshStandardMaterial
       color={color}
-      emissive={emissive ?? "#000000"}
-      emissiveIntensity={emissive ? intensity : 0}
-      roughness={0.92}
-      metalness={0.02}
-      flatShading
+      emissive={color}
+      emissiveIntensity={dim ? 0.5 : 1.6}
+      toneMapped={false}
     />
   </mesh>
 );
 
-/** 凸点：积木顶上那颗小圆柱，最直白的乐高记号 */
-const Stud = ({
-  position,
-  color,
-  r = 0.26,
-  h = 0.22,
-}: {
-  position: [number, number, number];
-  color: string;
-  r?: number;
-  h?: number;
-}) => (
-  <mesh position={position}>
-    <cylinderGeometry args={[r, r, h, 10]} />
-    <meshStandardMaterial
-      color={color}
-      roughness={0.9}
-      metalness={0.02}
-      flatShading
-    />
-  </mesh>
-);
-
-/* ------------------------------- 圆厅 -------------------------------- */
+/* ---------------------------- 门厅 ---------------------------- */
 
 /**
- * 圆厅本身：地面、天花、外墙（连同每间展位的色带）、中央立柱、地面同心环。
- * 这些都不承载内容，只负责让人一眼看出「我在一个圆的展厅里转」。
+ * 门厅：正八边形的地和顶，加上厅心的灯槽。
+ * 八面墙由 8 个房间各自的门墙拼成（见 RoomShell），这里不重复建。
  */
-const Ring = () => (
+const Hub = () => (
   <group>
-    {/* 地面 / 天花：两个大圆盘 */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-      <circleGeometry args={[R_OUTER, 72]} />
-      <meshStandardMaterial color={FLOOR_COLOR} roughness={1} metalness={0} />
+    {/* 八角地面。用八棱柱而不是方块 —— 方块的四角会伸进房间里，
+        和房间地板共面打架（z-fighting 闪烁）。 */}
+    <mesh position={[0, -0.1, 0]} rotation={[0, Math.PI / 8, 0]}>
+      <cylinderGeometry args={[HUB_CIRCUM, HUB_CIRCUM, 0.2, 8]} />
+      <meshStandardMaterial color={COL.hubFloor} roughness={0.9} flatShading />
     </mesh>
-    <mesh position={[0, ROOM_H, 0]} rotation={[Math.PI / 2, 0, 0]}>
-      <circleGeometry args={[R_OUTER, 72]} />
-      <meshStandardMaterial color={WALL_COLOR} roughness={1} metalness={0} />
+    {/* 厅心的两圈地纹，一眼看出这是个门厅 */}
+    <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[4.2, 4.42, 64]} />
+      <meshBasicMaterial color="#ffcf00" toneMapped={false} />
     </mesh>
-
-    {/* 地面的同心环：转动时它们从脚下扫过，圆厅的形状就出来了 */}
-    {FLOOR_RINGS.map((r) => (
-      <mesh key={r} position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[r, 0.075, 6, 96]} />
-        <meshBasicMaterial color="#33439b" transparent opacity={0.6} />
-      </mesh>
-    ))}
-
-    {/* 外墙：站在厅里看到的是它的内表面 */}
-    <mesh position={[0, ROOM_H / 2, 0]}>
-      <cylinderGeometry args={[R_OUTER, R_OUTER, ROOM_H, 64, 1, true]} />
-      <meshStandardMaterial
-        color={WALL_COLOR}
-        side={THREE.BackSide}
-        roughness={0.95}
-        metalness={0.02}
-      />
+    <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[9.0, 9.16, 64]} />
+      <meshBasicMaterial color="#3a4790" toneMapped={false} />
     </mesh>
-
-    {/* 外墙上的色带：每间展位一段，转动时颜色一段段换过去 */}
-    {STATIONS.map((station) => (
-      <mesh key={station.id} position={[0, BAND_Y, 0]}>
-        <cylinderGeometry
-          args={[
-            R_OUTER - 0.3,
-            R_OUTER - 0.3,
-            0.6,
-            28,
-            1,
-            true,
-            station.angle - RING_STEP / 2,
-            RING_STEP,
-          ]}
-        />
-        <meshBasicMaterial
-          color={station.accent}
-          side={THREE.BackSide}
-          transparent
-          opacity={0.5}
-        />
-      </mesh>
-    ))}
-
-    {/* 中央立柱：圆厅的圆心 */}
-    <mesh position={[0, ROOM_H / 2, 0]}>
-      <cylinderGeometry args={[R_HUB, R_HUB, ROOM_H, 28, 1, false]} />
-      <meshStandardMaterial
-        color={HUB_COLOR}
-        roughness={0.95}
-        metalness={0.02}
-        flatShading
-      />
+    {/* 八角顶 */}
+    <mesh position={[0, CEIL_H, 0]} rotation={[0, Math.PI / 8, 0]}>
+      <cylinderGeometry args={[HUB_CIRCUM, HUB_CIRCUM, 0.2, 8]} />
+      <meshStandardMaterial color={COL.ceil} roughness={0.95} flatShading />
+    </mesh>
+    {/* 厅心的顶灯 */}
+    <mesh position={[0, CEIL_H - 0.16, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[1.6, 2.6, 40]} />
+      <meshBasicMaterial color="#c8d4ff" toneMapped={false} />
     </mesh>
   </group>
 );
 
-/** 展位之间的隔墙：从外墙往里伸的短墙，顶上带一排凸点 */
-const Divider = ({ angle, accent }: { angle: number; accent: string }) => {
-  const h = 4.8;
-  const len = R_OUTER - R_DIV_IN;
-  const mid = (R_OUTER + R_DIV_IN) / 2;
+/* ---------------------------- 一间房 ---------------------------- */
+
+/**
+ * 一个房间：门厅那面带门洞的墙 + 房间外壳 + 尽头墙上的板框。
+ * 整个 group 绕 y 轴转到自己的方位角上，局部 +z 就是「由厅心指向外」——
+ * 注意朝门厅是 −z，门扇上的把手和灯条都得放在负侧，否则会被门扇自己挡住。
+ */
+const RoomShell = ({ room }: { room: Room }) => {
+  const segW = (HUB_SIDE - DOOR_W) / 2;
+  const segX = DOOR_W / 2 + segW / 2;
+  const zc = (R_HUB + R_OUT) / 2;
+  const zl = R_OUT - R_HUB;
 
   return (
-    <group
-      position={[ringX(angle, mid), 0, ringZ(angle, mid)]}
-      rotation={[0, angle, 0]}
-    >
-      <Slab
-        position={[0, h / 2, 0]}
-        size={[0.75, h, len]}
-        color={WALL_COLOR}
-        emissive={accent}
-        intensity={0.12}
-      />
-      {[-2.9, 0, 2.9].map((z) => (
-        <Stud key={z} position={[0, h + 0.11, z]} color={accent} />
+    <group rotation={[0, room.angle, 0]}>
+      {/* 门厅这面墙：左右两段 + 门楣，中间是门洞。
+          墙面一律不给 accent 自发光 —— 高饱和的强调色一旦大面积铺在墙上，
+          深蓝底会被染成土黄，像旧墙皮。颜色只留在灯条上做点缀。 */}
+      {[-1, 1].map((s) => (
+        <Slab
+          key={s}
+          position={[s * segX, CEIL_H / 2, R_HUB]}
+          size={[segW, CEIL_H, 0.6]}
+          color={COL.wall}
+        />
       ))}
-      {/* 内端一根竖灯，远远看到就知道下一个展位在哪 */}
+      <Slab
+        position={[0, DOOR_H + (CEIL_H - DOOR_H) / 2, R_HUB]}
+        size={[DOOR_W, CEIL_H - DOOR_H, 0.6]}
+        color={COL.wall}
+      />
+      {/* 门框发光条 */}
       <GlowBar
-        position={[0, h / 2, -len / 2 + 0.45]}
-        size={[0.18, h - 1.6, 0.18]}
-        color={accent}
+        position={[-DOOR_W / 2, DOOR_H / 2, R_HUB - 0.34]}
+        size={[0.12, DOOR_H, 0.12]}
+        color={COL.frame}
       />
-    </group>
-  );
-};
-
-/** 展位背板：贴在弧形外墙上的一块暗色板，让解说板有个「窗口」 */
-const BackPanel = ({ angle, accent }: { angle: number; accent: string }) => {
-  const r = R_OUTER - 0.5;
-  return (
-    <mesh
-      position={[ringX(angle, r), 3.9, ringZ(angle, r)]}
-      rotation={[0, angle + Math.PI, 0]}
-    >
-      <planeGeometry args={[BOARD_W + 5.4, 7.4]} />
-      <meshStandardMaterial
-        color="#0b1026"
-        emissive={accent}
-        emissiveIntensity={0.12}
-        roughness={1}
-        metalness={0}
+      <GlowBar
+        position={[DOOR_W / 2, DOOR_H / 2, R_HUB - 0.34]}
+        size={[0.12, DOOR_H, 0.12]}
+        color={COL.frame}
       />
-    </mesh>
-  );
-};
-
-/** 展位前的地砖：一小块亮色积木，站在哪一间一眼看得出来 */
-const FloorTile = ({ angle, accent }: { angle: number; accent: string }) => {
-  const r = (R_CAM + R_BOARD) / 2;
-  return (
-    <group
-      position={[ringX(angle, r), 0, ringZ(angle, r)]}
-      rotation={[0, angle, 0]}
-    >
-      <Slab
-        position={[0, 0.07, 0]}
-        size={[9.2, 0.14, 8]}
-        color={TILE_COLOR}
-        emissive={accent}
-        intensity={0.5}
+      <GlowBar
+        position={[0, DOOR_H, R_HUB - 0.34]}
+        size={[DOOR_W, 0.12, 0.12]}
+        color={COL.frame}
       />
-    </group>
-  );
-};
-
-/* --------------------- 解说板在空间里的那台「屏」 --------------------- */
-
-/**
- * 真正承载内容的是 DOM 里那块板（Scene3D 每帧把它投影到正确的位置）。
- * 这里画的是它在空间里的实体：一块亮色积木框 + 底座 + 顶上一排凸点。
- * 框比板子大一圈，露出来的那圈边就是「板框」。
- */
-const Partition = ({ station }: { station: Station }) => {
-  const frameW = BOARD_W + 0.4;
-  const frameH = BOARD_H + 0.4;
-
-  return (
-    <group
-      position={[ringX(station.angle, R_BOARD), 0, ringZ(station.angle, R_BOARD)]}
-      rotation={[0, station.angle + Math.PI, 0]}
-    >
-      {/* 板框：正面正好在 R_BOARD 这圈上，DOM 那块板就贴在这一层 */}
-      <mesh position={[0, BOARD_MID_Y, -0.16]}>
-        <boxGeometry args={[frameW, frameH, 0.32]} />
-        <meshStandardMaterial
-          color={station.accent}
-          emissive={station.accent}
-          emissiveIntensity={0.3}
-          roughness={0.85}
-          metalness={0.02}
-          flatShading
-        />
-      </mesh>
-
-      {/* 底座：把板子落到地上，看着是立着的而不是飘着的 */}
-      <mesh position={[0, BOARD_BOTTOM / 2, -0.16]}>
-        <boxGeometry args={[frameW + 0.9, BOARD_BOTTOM, 1.3]} />
-        <meshStandardMaterial
-          color="#1a2150"
-          roughness={0.95}
-          metalness={0.02}
-          flatShading
-        />
-      </mesh>
-
-      {/* 板框顶上的一排凸点：这块板本身也是一块积木 */}
-      {[-3.7, -1.85, 0, 1.85, 3.7].map((x) => (
-        <Stud
-          key={x}
-          position={[x, BOARD_MID_Y + frameH / 2 + 0.26, -0.16]}
-          color={station.accent}
-          r={0.28}
-          h={0.24}
-        />
+      {/* 门槛：一道横在门口的亮线，指明从这儿进 */}
+      <GlowBar position={[0, 0.03, R_HUB]} size={[DOOR_W, 0.06, 0.5]} color={COL.stud} />
+      {[-1.2, 0, 1.2].map((x) => (
+        <Stud key={x} position={[x, CEIL_H + 0.12, R_HUB]} color={COL.stud} />
       ))}
 
-      {/* 板前的一盏灯，让展位里有方向感 */}
-      <pointLight
-        position={[0, BOARD_MID_Y + 1.4, 3.6]}
-        intensity={20}
-        distance={18}
-        decay={2}
-        color={station.accent}
+      {/* 房间的地、顶、两侧墙、尽头墙 */}
+      <Slab position={[0, -0.1, zc]} size={[ROOM_W, 0.2, zl]} color={COL.floor} />
+      <Slab position={[0, CEIL_H, zc]} size={[ROOM_W, 0.2, zl]} color={COL.ceil} />
+      {[-1, 1].map((s) => (
+        <Slab
+          key={s}
+          position={[(s * ROOM_W) / 2 + s * 0.3, CEIL_H / 2, zc]}
+          size={[0.6, CEIL_H, zl]}
+          color={COL.wall}
+        />
+      ))}
+      <Slab
+        position={[0, CEIL_H / 2, R_OUT + 0.3]}
+        size={[ROOM_W, CEIL_H, 0.6]}
+        color={COL.wall}
+      />
+      {/* 房间顶上的灯槽 */}
+      {[-3.4, 3.4].map((x) => (
+        <GlowBar
+          key={x}
+          position={[x, CEIL_H - 0.12, zc]}
+          size={[0.1, 0.06, zl - 3]}
+          color="#5a6bb5"
+          dim
+        />
+      ))}
+      {/* 地面导引线：从门口铺到板子前 */}
+      <GlowBar
+        position={[0, 0.012, R_HUB + 6]}
+        size={[0.09, 0.03, zl - 5]}
+        color={room.accent}
+      />
+      <mesh position={[0, 0.015, R_HUB + 7.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[3.4, 3.56, 44]} />
+        <meshBasicMaterial color={room.accent} toneMapped={false} />
+      </mesh>
+
+      {/* 尽头墙上的色带 + 凸点，标出这间房的颜色 */}
+      <GlowBar
+        position={[0, 5.95, R_OUT + 0.04]}
+        size={[ROOM_W - 2.4, 0.13, 0.08]}
+        color={room.accent}
+      />
+      {[-3.4, 0, 3.4].map((x) => (
+        <Stud key={x} position={[x, CEIL_H + 0.12, R_OUT + 0.1]} color={room.accent} />
+      ))}
+
+      {/* 解说板的板框与底座：DOM 那块板就贴在这一层上 */}
+      <mesh position={[0, BOARD_MID_Y, BOARD_R - 0.2]}>
+        <boxGeometry args={[BOARD_W + 0.4, BOARD_H + 0.4, 0.3]} />
+        <meshStandardMaterial
+          color={room.accent}
+          emissive={room.accent}
+          emissiveIntensity={0.32}
+          roughness={0.85}
+          flatShading
+        />
+      </mesh>
+      <Slab
+        position={[0, BOARD_BOTTOM / 2, BOARD_R - 0.2]}
+        size={[BOARD_W + 1.1, BOARD_BOTTOM, 1.4]}
+        color="#141a44"
       />
     </group>
   );
 };
 
-/* ------------------------ 解说板的投影引擎 ------------------------ */
+/**
+ * 门扇。铰链在门洞左边，开度由外部每帧写进来 ——
+ * 跟着镜头位置走，不是跟着「点没点」走，这样才有「推开」的过程。
+ */
+const Door = ({
+  room,
+  openness,
+  onEnter,
+}: {
+  room: Room;
+  openness: React.MutableRefObject<number[]>;
+  onEnter: (index: number) => void;
+}) => {
+  const index = roomIndex(room.id);
+  const ref = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (ref.current) {
+      const open = openness.current[index] ?? 0;
+      /* 负角才是往房间那一侧推开。铰链在局部 x=0、门扇朝 +x 展开，而局部 +z
+         是「朝外」；绕 y 转 θ 会把自由端送到 −dx·sinθ 的 z 上 —— 取正角会
+         推向门厅，正好撞上进门的访客。 */
+      ref.current.rotation.y = -open * THREE.MathUtils.degToRad(96);
+    }
+  });
+
+  return (
+    <group rotation={[0, room.angle, 0]}>
+      <group position={[-DOOR_W / 2, 0, R_HUB]} ref={ref}>
+        <mesh
+          position={[DOOR_W / 2, DOOR_H / 2, 0]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEnter(index);
+          }}
+          onPointerOver={() => (document.body.style.cursor = "pointer")}
+          onPointerOut={() => (document.body.style.cursor = "")}
+        >
+          <boxGeometry args={[DOOR_W - 0.12, DOOR_H - 0.08, 0.18]} />
+          <meshStandardMaterial
+            color={COL.door}
+            emissive={room.accent}
+            /* 只留一丝自发光。给足会把整扇门染成强调色，看着不像门、像一堵墙 */
+            emissiveIntensity={0.05}
+            roughness={0.82}
+            flatShading
+          />
+        </mesh>
+        {/* 门扇上下两道本色描边，让「这是一扇门」一眼成立 */}
+        <GlowBar
+          position={[DOOR_W / 2, DOOR_H - 0.14, -0.12]}
+          size={[DOOR_W - 0.4, 0.06, 0.05]}
+          color={room.accent}
+          dim
+        />
+        <GlowBar
+          position={[DOOR_W / 2, 0.16, -0.12]}
+          size={[DOOR_W - 0.4, 0.06, 0.05]}
+          color={room.accent}
+          dim
+        />
+        {/* 门把手：装在 −z（朝门厅）这一侧，来客才看得见 */}
+        <mesh position={[DOOR_W - 0.58, 1.95, -0.24]}>
+          <boxGeometry args={[0.16, 0.62, 0.16]} />
+          <meshStandardMaterial
+            color={COL.stud}
+            emissive={COL.stud}
+            emissiveIntensity={2.2}
+            toneMapped={false}
+          />
+        </mesh>
+        {/* 门面上一道竖灯，用这间房的颜色 */}
+        <GlowBar
+          position={[DOOR_W / 2, DOOR_H / 2, -0.14]}
+          size={[0.07, DOOR_H - 1.6, 0.05]}
+          color={room.accent}
+        />
+      </group>
+    </group>
+  );
+};
+
+/* ---------------------------- 相机 ---------------------------- */
 
 /**
- * 一块要被摆进空间的板。DOM 那边是 .board（固定 1000×600，绝对定位在
- * .stage 左上角），这里每帧算出它应该在屏幕上的位置与缩放。
+ * 相机。门厅里站在厅心按 hubYaw 朝外看；走进房间时沿着自己的方位角直着往外走。
+ * 位置一律由 (progress, target, hubYaw) 决定，没有自由漫游 —— 这样任何时刻
+ * 都能算出确定的位置，不会出现「走到一半卡住」。
  */
-type Board = {
-  id: string;
-  /** 这块板在圆厅里的角度，用来判断相机转到它面前了没有 */
-  angle: number;
+const Rig = ({ view }: { view: React.MutableRefObject<View> }) => {
+  const { camera } = useThree();
+  const look = useRef(new THREE.Vector3(0, 2.2, R_HUB));
+  const want = useRef(new THREE.Vector3());
+  const dir = useRef(new THREE.Vector3());
+
+  useFrame((_, delta) => {
+    const v = view.current;
+
+    if (v.target < 0) {
+      camera.position.set(0, EYE, 0);
+      dir.current.set(Math.sin(v.hubYaw), 0, Math.cos(v.hubYaw));
+      want.current.copy(camera.position).addScaledVector(dir.current, R_HUB);
+      want.current.y = DOOR_H * 0.42;
+    } else {
+      const room = ROOMS[v.target];
+      dir.current.set(Math.sin(room.angle), 0, Math.cos(room.angle));
+      const r = THREE.MathUtils.lerp(0, DOCK_R, v.progress);
+      camera.position.set(dir.current.x * r, EYE, dir.current.z * r);
+
+      // 先看门，穿过去之后改看板子 —— 视线也要跟着走
+      const doorY = DOOR_H * 0.42;
+      want.current.copy(dir.current).multiplyScalar(R_HUB);
+      want.current.y = doorY;
+      const boardPos = dir.current.clone().multiplyScalar(BOARD_R);
+      boardPos.y = BOARD_MID_Y;
+      want.current.lerp(
+        boardPos,
+        THREE.MathUtils.smoothstep(v.progress, 0.62, 0.92)
+      );
+    }
+
+    // 视线本身也缓一下，免得穿过门那一瞬镜头猛地一抬头
+    look.current.lerp(want.current, 1 - Math.pow(0.0025, delta));
+    camera.lookAt(look.current);
+  });
+
+  return null;
+};
+
+type Stage = {
   el: HTMLElement | null;
-  /** 所属 .stage 在文档里的位置（stage 自己不做 transform，随时量都准） */
-  stageTop: number;
-  stageLeft: number;
-  /** 板心在世界里的位置 */
-  world: THREE.Vector3;
-  /** 板面法线（朝圆心），相机在它正面时才看得见 */
-  normal: THREE.Vector3;
-  /** 淡入淡出用的透明度，逐帧靠近目标值 */
+  baseLeft: number;
+  baseTop: number;
   alpha: number;
 };
 
-/* 投影计算用的临时对象，避免每帧新建 */
-const _toCam = new THREE.Vector3();
-const _proj = new THREE.Vector3();
-const _edge = new THREE.Vector3();
-
-/** 平滑阶跃，用来做角度 / 距离上的淡入淡出 */
-const smooth = (from: number, to: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - from) / (to - from)));
-  return t * t * (3 - 2 * t);
-};
-
-/** 角差折算到 [-π, π]，这样「最近的角差」永远是走短边 */
-const wrapPi = (a: number) => {
-  let x = a % (Math.PI * 2);
-  if (x > Math.PI) x -= Math.PI * 2;
-  if (x < -Math.PI) x += Math.PI * 2;
-  return x;
-};
-
 /**
- * 逐帧把每块板摆到它该在的屏幕位置。
- *
- * 相机是绕着圆厅转的，所以正对着板时板子正好铺在屏幕中间；转过去的路上板子
- * 先按角差淡出、下一块再淡进来（中途板子是被斜着看的，用等比缩放去近似会失真，
- * 索性在偏过 20° 左右就让它退场）。
+ * 把 8 块解说板摆进各自的房间。
+ * 每帧把板心的世界坐标投影到屏幕，再用板顶的投影反推 scale，写回
+ * translate3d + scale。只有当前这间房的板子会淡入 ——
+ * 否则会看到 8 块板同时糊在屏幕上。
  */
 const Boards = ({
-  boards,
-  angleRef,
+  view,
+  stages,
   painted,
 }: {
-  boards: React.MutableRefObject<Board[]>;
-  angleRef: AngleRef;
+  view: React.MutableRefObject<View>;
+  stages: React.MutableRefObject<Stage[]>;
   painted: React.MutableRefObject<boolean>;
 }) => {
-  useFrame((state, delta) => {
-    const { camera, size } = state;
-    const scrollY = window.scrollY;
-    const step = Math.min(1, delta * 8);
+  const proj = useRef(new THREE.Vector3());
+  const edge = useRef(new THREE.Vector3());
+  const world = useRef(new THREE.Vector3());
 
-    // Rig 的 useFrame 排在这之前，本帧它刚改过相机位置，但矩阵还没更新；
-    // 这里主动刷新一次，投影才不会慢一帧（快滚时板子会明显拖影）
-    camera.updateMatrixWorld();
-    camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+  useFrame(({ camera, size }) => {
+    const v = view.current;
 
-    for (const board of boards.current) {
-      const el = board.el;
-      if (!el) continue;
+    ROOMS.forEach((room, i) => {
+      const s = stages.current[i];
+      const el = s?.el;
+      if (!el) return;
 
-      _toCam.copy(camera.position).sub(board.world);
-      const distance = _toCam.length() || 1;
-      const facing = _toCam.dot(board.normal) / distance;
-      // 相机转到别的展位去了就退场：角差比距离更说明「这块板现在是不是主角」
-      const offAngle = Math.abs(wrapPi(angleRef.current - board.angle));
-
-      // 偏过半个展位（22.5°）时两块板各留一半，转到哪一间都是「迎面来、背后走」；
-      // 停稳时邻居偏了 45°，早淡干净了，绝不会两块板同时占着屏幕
+      // 只有「正在走向的这间」、且已经走进去大半时，板子才露面
       const wanted =
-        facing > 0.2
-          ? (1 - smooth(0.3, 0.48, offAngle)) *
-            smooth(4.5, 8, distance) *
-            (1 - smooth(24, 40, distance))
-          : 0;
-      board.alpha += (wanted - board.alpha) * step;
+        v.target === i ? THREE.MathUtils.smoothstep(v.progress, 0.6, 0.95) : 0;
+      // 收的时候比放的时候快一点，避免换房时两块板同时可见
+      s.alpha += (wanted - s.alpha) * (wanted > s.alpha ? 0.12 : 0.28);
 
-      if (board.alpha < 0.02) {
+      if (s.alpha < 0.02) {
         if (el.style.visibility !== "hidden") {
           el.style.visibility = "hidden";
           el.style.pointerEvents = "none";
         }
-        continue;
+        return;
       }
 
-      _proj.copy(board.world).project(camera);
-      const cx = (_proj.x * 0.5 + 0.5) * size.width;
-      const cy = (-_proj.y * 0.5 + 0.5) * size.height;
+      world.current.set(
+        Math.sin(room.angle) * BOARD_R,
+        BOARD_MID_Y,
+        Math.cos(room.angle) * BOARD_R
+      );
+
+      proj.current.copy(world.current).project(camera);
+      const cx = (proj.current.x * 0.5 + 0.5) * size.width;
+      const cy = (-proj.current.y * 0.5 + 0.5) * size.height;
 
       // 用板子上沿的投影反推缩放：世界里的高度 ↔ DOM 里的像素高度
-      _edge.copy(board.world);
-      _edge.y += BOARD_H / 2;
-      _edge.project(camera);
-      const heightPx = Math.abs(cy - (-_edge.y * 0.5 + 0.5) * size.height) * 2;
+      edge.current.copy(world.current);
+      edge.current.y += BOARD_H / 2;
+      edge.current.project(camera);
+      const heightPx =
+        Math.abs(cy - (-edge.current.y * 0.5 + 0.5) * size.height) * 2;
       const scale = heightPx / BOARD_PX_H;
 
-      // DOM 那块板目前躺在 .stage 左上角（layout 位置），算出它到目标位置的位移
-      const dx = cx - (board.stageLeft + BOARD_PX_W / 2);
-      const dy = cy - (board.stageTop - scrollY + BOARD_PX_H / 2);
+      // DOM 那块板躺在 .stage 左上角，算出它到目标位置的位移
+      const dx = cx - (s.baseLeft + BOARD_PX_W / 2);
+      const dy = cy - (s.baseTop + BOARD_PX_H / 2);
 
       el.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(
         1
       )}px, 0) scale(${scale.toFixed(4)})`;
-      el.style.opacity = board.alpha.toFixed(3);
+      el.style.opacity = s.alpha.toFixed(3);
       el.style.visibility = "visible";
       el.style.pointerEvents = "auto";
-    }
+    });
 
     painted.current = true;
   });
@@ -525,121 +553,149 @@ const Boards = ({
   return null;
 };
 
-/* ---------------------------- 相机 ---------------------------- */
-
 /**
- * 相机在半径 R_CAM 的轨道上转：角度缓动到目标展位，视线始终锁在那块板的板心上。
- * 这样「停稳」的时候投影一定正中，正文才不会一边读一边飘。
- * 转得快的时候机身轻轻侧倾一下（侧倾量取自实际角速度，停下来就回正）。
+ * 房名牌：8 块真实 DOM 按钮，每帧被投影到各自门洞的上方。
+ * 用 DOM 而不是 3D 文字，是因为中文字形在 3D 里要么糊、要么得额外加载字体；
+ * 而且做成按钮之后键盘 Tab 也能走到，不会把键盘用户锁在门厅里。
  */
-const Rig = ({
-  targetAngle,
-  angleRef,
+const Plates = ({
   view,
+  plates,
+  sizes,
+  onEnter,
 }: {
-  targetAngle: TargetAngle;
-  angleRef: AngleRef;
-  view: ViewRef;
+  view: React.MutableRefObject<View>;
+  plates: React.MutableRefObject<(HTMLElement | null)[]>;
+  sizes: React.MutableRefObject<number[]>;
+  onEnter: (index: number) => void;
 }) => {
-  /** 缓动后的角速度，只用来决定侧倾多少 */
-  const omega = useRef(0);
+  const proj = useRef(new THREE.Vector3());
+  const unit = useRef(new THREE.Vector3());
+  const fwd = useRef(new THREE.Vector3());
+  const world = useRef(new THREE.Vector3());
+  const dir = useRef(new THREE.Vector3());
 
-  useFrame((state, delta) => {
-    const camera = state.camera;
-    const t = state.clock.elapsedTime;
-    const ease = Math.min(1, delta * 3.2);
-    const dt = Math.max(delta, 0.001);
+  useFrame(({ camera, size }) => {
+    const v = view.current;
+    camera.getWorldDirection(fwd.current);
 
-    const before = angleRef.current;
-    angleRef.current += (targetAngle.current - before) * ease;
-    const a = angleRef.current;
+    ROOMS.forEach((room, i) => {
+      const el = plates.current[i];
+      if (!el) return;
 
-    // 实际转得多快（弧度/秒），转得快就多侧倾一点
-    omega.current += ((a - before) / dt - omega.current) * Math.min(1, delta * 4);
+      dir.current.set(Math.sin(room.angle), 0, Math.cos(room.angle));
+      world.current.copy(dir.current).multiplyScalar(R_HUB);
+      world.current.y = DOOR_H + PLATE_LIFT;
 
-    const r = R_BOARD - view.current;
-    // 走路的轻微摇晃：身体沿切线偏一丁点、上下起伏一点（房间在晃、板子不动）
-    const theta = a + (Math.sin(t * 0.16) * 0.2) / r;
-    camera.position.set(
-      ringX(theta, r),
-      EYE + Math.cos(t * 0.13) * 0.1,
-      ringZ(theta, r)
-    );
+      // 只在门厅里、且这扇门确实在镜头前方时显示。
+      // 不做这层剔除的话，背后那几扇门的牌子会翻过来糊在屏幕上。
+      const toDoor = world.current.clone().sub(camera.position).normalize();
+      const facing = toDoor.dot(fwd.current);
+      const inHub = v.target < 0 && v.progress <= 0.02;
+      const alpha = inHub
+        ? THREE.MathUtils.smoothstep(facing, 0.42, 0.72)
+        : 0;
 
-    // 视线正对板心上（不是板前的一点）：身体再怎么晃，板心都钉在画面正中
-    camera.lookAt(ringX(a, R_BOARD), BOARD_MID_Y, ringZ(a, R_BOARD));
+      const prev = Number(el.dataset.alpha ?? "0");
+      const next = prev + (alpha - prev) * 0.16;
+      el.dataset.alpha = String(next);
+      el.style.opacity = next.toFixed(3);
+      el.style.visibility = next < 0.02 ? "hidden" : "visible";
+      el.style.pointerEvents = next < 0.5 ? "none" : "auto";
 
-    // 转起来的时候侧倾一点，像坐旋转木马
-    camera.rotateZ(Math.max(-0.035, Math.min(0.035, -omega.current * 0.06)));
+      if (next < 0.02) return;
+
+      proj.current.copy(world.current).project(camera);
+      const cx = (proj.current.x * 0.5 + 0.5) * size.width;
+      const cy = (-proj.current.y * 0.5 + 0.5) * size.height;
+
+      /* 缩放要按「屏幕上 1 个世界单位 = 多少 CSS 像素」来算，再乘上牌子在
+         世界里的目标高度，最后除以它自己的像素高度。这里最容易错的是拿世界
+         单位当像素用 —— 那样牌子会被放大上百倍，直接糊满屏幕把 3D 盖住。 */
+      unit.current.copy(world.current);
+      unit.current.y += 1;
+      unit.current.project(camera);
+      const pxPerUnit = Math.abs(
+        cy - (-unit.current.y * 0.5 + 0.5) * size.height
+      );
+      const platePx = sizes.current[i] || 44;
+      const scale = (pxPerUnit * PLATE_WORLD_H) / platePx;
+
+      el.style.transform = `translate(-50%, -50%) translate(${cx.toFixed(
+        1
+      )}px, ${cy.toFixed(1)}px) scale(${scale.toFixed(3)})`;
+    });
   });
 
   return null;
 };
 
-/* -------------------------------- 场景 -------------------------------- */
+/* ---------------------------- 空间内容 ---------------------------- */
 
-const Scene = ({
-  targetAngle,
-  angleRef,
+const Hall = ({
   view,
-  boards,
+  stages,
+  plates,
+  sizes,
+  openness,
   painted,
+  onEnter,
 }: {
-  targetAngle: TargetAngle;
-  angleRef: AngleRef;
-  view: ViewRef;
-  boards: React.MutableRefObject<Board[]>;
+  view: React.MutableRefObject<View>;
+  stages: React.MutableRefObject<Stage[]>;
+  plates: React.MutableRefObject<(HTMLElement | null)[]>;
+  sizes: React.MutableRefObject<number[]>;
+  openness: React.MutableRefObject<number[]>;
   painted: React.MutableRefObject<boolean>;
+  onEnter: (index: number) => void;
 }) => (
   <>
     <color attach="background" args={[SPACE_COLOR]} />
-    {/* 近处清晰，对面那半圈逐间接上底色，转的时候不会糊成一片 */}
-    <fog attach="fog" args={[SPACE_COLOR, 18, 58]} />
-    <ambientLight intensity={0.6} />
-    <directionalLight position={[-8, 14, 6]} intensity={1.15} color="#dbe4ff" />
-    <directionalLight position={[8, 6, -12]} intensity={0.5} color="#8fb4ff" />
+    <fog attach="fog" args={[SPACE_COLOR, 34, 78]} />
 
-    <Rig targetAngle={targetAngle} angleRef={angleRef} view={view} />
+    <ambientLight intensity={0.85} color="#93a4ff" />
+    <hemisphereLight args={["#6a7bd0", "#0a0e28", 0.55]} />
+    <directionalLight position={[-10, 16, 9]} intensity={0.35} color="#ffffff" />
 
-    <Ring />
-
-    {STATIONS.map((station, index) => (
-      <group key={station.id}>
-        {/* 隔墙摆在本展位与下一间之间，用下一间的颜色 */}
-        <Divider
-          angle={station.angle + RING_STEP / 2}
-          accent={STATIONS[(index + 1) % STATIONS.length].accent}
-        />
-        <BackPanel angle={station.angle} accent={station.accent} />
-        <FloorTile angle={station.angle} accent={station.accent} />
-        <Partition station={station} />
-      </group>
+    {/* 点光源一律 decay={0}：three 现在用物理正确的衰减，按平方反比算的话，
+        门厅半径 14.5 处的照度只有 3 单位处的 1/23，灯得开到几百才够亮。 */}
+    <pointLight
+      position={[0, CEIL_H - 0.6, 0]}
+      intensity={2.4}
+      distance={42}
+      decay={0}
+      color="#cdd8ff"
+    />
+    {ROOMS.map((room) => (
+      <pointLight
+        key={room.id}
+        position={[
+          Math.sin(room.angle) * (R_HUB + 7),
+          5.6,
+          Math.cos(room.angle) * (R_HUB + 7),
+        ]}
+        intensity={1.7}
+        distance={22}
+        decay={0}
+        color={room.accent}
+      />
     ))}
 
-    <Boards boards={boards} angleRef={angleRef} painted={painted} />
+    <Hub />
+    {ROOMS.map((room) => (
+      <RoomShell key={room.id} room={room} />
+    ))}
+    {ROOMS.map((room) => (
+      <Door key={room.id} room={room} openness={openness} onEnter={onEnter} />
+    ))}
+
+    <Rig view={view} />
+    <Boards view={view} stages={stages} painted={painted} />
+    <Plates view={view} plates={plates} sizes={sizes} onEnter={onEnter} />
   </>
 );
 
-/* ------------------------------ 对外组件 ------------------------------ */
-
-/**
- * 显卡驱动异常 / 上下文耗尽时 Canvas 会抛错，
- * 兜住它免得整个页面跟着白屏，出问题就退回静态渐变。
- */
-class SceneErrorBoundary extends Component<
-  { children: ReactNode },
-  { broken: boolean }
-> {
-  state = { broken: false };
-
-  static getDerivedStateFromError() {
-    return { broken: true };
-  }
-
-  render() {
-    return this.state.broken ? null : this.props.children;
-  }
-}
+/* ---------------------------- 门槛判定 ---------------------------- */
 
 /** 判断能不能跑 WebGL，探测用的上下文用完立刻释放，别白占一个名额 */
 const detectWebGL = () => {
@@ -654,52 +710,76 @@ const detectWebGL = () => {
   }
 };
 
+/* ------------------------------ 对外组件 ------------------------------ */
+
+/**
+ * 显卡驱动异常 / 上下文耗尽时 Canvas 会抛错，
+ * 兜住它免得整个页面跟着白屏，出问题就退回静态渐变。
+ */
+class SceneErrorBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 const Scene3D = () => {
   const [supported, setSupported] = useState(false);
   const [broken, setBroken] = useState(false);
+  /** 已经站定的房间；null = 还在门厅 */
+  const [here, setHere] = useState<number | null>(null);
+  const [walking, setWalking] = useState(false);
 
-  /** 相机当前转到哪个角度、应该停在哪个角度 */
-  const angleRef = useRef(STATIONS[0].angle);
-  const targetAngle = useRef(STATIONS[0].angle);
-  /** 每个区块滚到视口正中时的 scrollY，作为相机的路标 */
-  const stops = useRef<number[]>([]);
+  const view = useRef<View>({ progress: 0, hubYaw: 0, target: -1 });
+  const openness = useRef<number[]>(ROOMS.map(() => 0));
+  const walk = useRef({
+    active: false,
+    phase: "turn" as "turn" | "walk",
+    t: 0,
+    from: 0,
+    to: 0,
+    toRoom: -1,
+    yawFrom: 0,
+    yawTarget: 0,
+  });
+
+  const stages = useRef<Stage[]>(
+    ROOMS.map(() => ({ el: null, baseLeft: 0, baseTop: 0, alpha: 0 }))
+  );
+  const plates = useRef<(HTMLElement | null)[]>(ROOMS.map(() => null));
+  /** 每块房名牌自身的像素高度，投影时要用它反推缩放 */
+  const sizes = useRef<number[]>(ROOMS.map(() => 44));
   /** 渲染循环有没有真的跑起来（跑不起来就得退回普通排版） */
   const painted = useRef(false);
   const shade = useRef<HTMLDivElement>(null);
 
-  /** 8 块解说板，DOM 元素在下面量位置时挂上去 */
-  const boards = useRef<Board[]>([]);
-  if (boards.current.length === 0) {
-    boards.current = STATIONS.map((station) => ({
-      id: station.id,
-      angle: station.angle,
-      el: null,
-      stageTop: 0,
-      stageLeft: 0,
-      world: new THREE.Vector3(
-        ringX(station.angle, R_BOARD),
-        BOARD_MID_Y,
-        ringZ(station.angle, R_BOARD)
-      ),
-      normal: new THREE.Vector3(
-        -Math.sin(station.angle),
-        0,
-        -Math.cos(station.angle)
-      ),
-      alpha: 0,
-    }));
-  }
+  const showScene = supported && !broken;
 
-  /** 相机这一帧站得离板子多远，随视口高度变，resize 时重算 */
-  const view = useRef<number>(BOARD_DIST);
-  const syncView = useCallback(() => {
-    view.current = viewDist();
+  /* 量 8 块解说板的布局位置。transform 先清掉再量，否则量到的是上一帧的结果 */
+  const measure = useCallback(() => {
+    ROOMS.forEach((room, i) => {
+      const el = document.querySelector<HTMLElement>(`[data-board="${room.id}"]`);
+      if (!el) return;
+      el.style.transform = "none";
+      const r = el.getBoundingClientRect();
+      stages.current[i].el = el;
+      stages.current[i].baseLeft = r.left;
+      stages.current[i].baseTop = r.top;
+    });
+    plates.current.forEach((el, i) => {
+      if (el?.offsetHeight) sizes.current[i] = el.offsetHeight;
+    });
   }, []);
 
+  /* 门槛：窗口够大、比例够宽、没关动效、取得到 WebGL。
+     必须监听变化，不能只算一次 —— 否则把窗口从宽拖窄，3D 会赖着不走。 */
   useEffect(() => {
-    // 门槛只要能装下板子就放行。板子内部排版是按 1000px 宽写的（lg: 断点），
-    // 视口窄于 1024 时媒体查询不命中，内容会被挤成两列、溢出固定高度的板子，
-    // 所以 1024 是硬下限；高度 600 是字号的地板（此时正文约 11px）。
     const wideScreen = window.matchMedia("(min-width: 1024px)");
     const tallScreen = window.matchMedia("(min-height: 600px)");
     const wideRatio = window.matchMedia("(min-aspect-ratio: 13/10)");
@@ -723,218 +803,336 @@ const Scene3D = () => {
     };
 
     sync();
-    wideScreen.addEventListener("change", sync);
-    tallScreen.addEventListener("change", sync);
-    wideRatio.addEventListener("change", sync);
-    calmMotion.addEventListener("change", sync);
+    [wideScreen, tallScreen, wideRatio, calmMotion].forEach((q) =>
+      q.addEventListener("change", sync)
+    );
+    window.addEventListener("resize", sync);
     return () => {
-      wideScreen.removeEventListener("change", sync);
-      tallScreen.removeEventListener("change", sync);
-      wideRatio.removeEventListener("change", sync);
-      calmMotion.removeEventListener("change", sync);
+      [wideScreen, tallScreen, wideRatio, calmMotion].forEach((q) =>
+        q.removeEventListener("change", sync)
+      );
+      window.removeEventListener("resize", sync);
     };
   }, []);
 
-  const showScene = supported && !broken;
+  /** 走进第 index 间房 */
+  const enter = useCallback((index: number) => {
+    if (index < 0 || index >= ROOMS.length) return;
+    const v = view.current;
+    if (v.target === index && v.progress > 0.9) return;
 
-  /**
-   * 量出每个区块在文档里的位置：既是相机的路标，也是每块板在 DOM 里的落点。
-   * stage 自身没有 transform，所以什么时候量都准。
-   *
-   * 注意：进不进空间模式，区块的高度完全不同（100vh vs 内容高度），
-   * 所以每次切换模式都要重新量一次，否则相机会按错误的刻度走。
-   */
-  const measure = useCallback(() => {
-    const middle = window.innerHeight / 2;
-    const marks: number[] = [];
-    STATIONS.forEach((station, index) => {
-      const el = document.querySelector<HTMLElement>(
-        `[data-board="${station.id}"]`
-      );
-      const stage = el?.parentElement;
-      if (!el || !stage) {
-        marks[index] = index === 0 ? 0 : marks[index - 1] + 1;
-        return;
-      }
-      const rect = stage.getBoundingClientRect();
-      const board = boards.current[index];
-      board.el = el;
-      board.stageTop = rect.top + window.scrollY;
-      board.stageLeft = rect.left;
-      marks[index] = Math.max(
-        0,
-        rect.top + window.scrollY + rect.height / 2 - middle
-      );
-    });
-    stops.current = marks;
+    // 已经在别的房间里：先把在这间的进度收掉，再由本轮行走接管
+    const w = walk.current;
+    w.active = true;
+    w.phase = "turn";
+    w.t = 0;
+    w.from = 0;
+    w.to = 1;
+    w.toRoom = index;
+    w.yawFrom = v.hubYaw;
+    w.yawTarget = ROOMS[index].angle;
+    setWalking(true);
+    setHere(null);
   }, []);
 
-  useEffect(() => {
-    const onResize = () => {
-      syncView();
-      measure();
-    };
+  /** 回到门厅 */
+  const leave = useCallback(() => {
+    const v = view.current;
+    const w = walk.current;
+    // 记住刚才那扇门的方向，回到门厅时就不用再转一次头
+    const yaw = v.target >= 0 ? ROOMS[v.target].angle : v.hubYaw;
+    w.active = true;
+    w.phase = "walk";
+    w.t = 0;
+    w.from = v.progress;
+    w.to = 0;
+    w.toRoom = -1;
+    w.yawFrom = yaw;
+    w.yawTarget = yaw;
+    v.target = -1;
+    v.hubYaw = yaw;
+    setWalking(true);
+    setHere(null);
+  }, []);
 
-    syncView();
-    measure();
-    // 字体和图片落位后高度会变，稍后再量一次
-    const timer = window.setTimeout(measure, 1200);
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [measure, syncView]);
+  /** 上一间 / 下一间 */
+  const step = useCallback(
+    (delta: number) => {
+      const current = view.current.target;
+      const from = current < 0 ? 0 : current;
+      enter((from + delta + ROOMS.length) % ROOMS.length);
+    },
+    [enter]
+  );
 
+  /* 把导航权交出去：站内所有指着房间的 # 锚点、以及命令面板，都走 enterRoom */
   useEffect(() => {
     if (!showScene) return;
+    return registerRoomEnter((roomId) => {
+      const index = roomIndex(roomId);
+      if (index >= 0) enter(index);
+    });
+  }, [showScene, enter]);
 
+  /* spatial-on：板子脱离文档流，交给下面的投影脚本摆位。
+     同时锁住滚动 —— 滚动已经不是导航手段，留着它只会让板子漂走。 */
+  useEffect(() => {
+    if (!showScene) return;
     document.documentElement.classList.add("spatial-on");
-    // 区块从「内容高度」变成「一屏高」，位置全变了，立刻按新的排版重量一次
-    syncView();
     measure();
 
-    const onScroll = () => {
-      const marks = stops.current;
-      if (marks.length !== STATIONS.length) return;
+    return () => {
+      document.documentElement.classList.remove("spatial-on");
+      stages.current.forEach((s) => {
+        if (!s.el) return;
+        s.el.style.visibility = "";
+        s.el.style.transform = "";
+        s.el.style.opacity = "";
+        s.el.style.pointerEvents = "";
+      });
+      if (shade.current) shade.current.style.opacity = "";
+      painted.current = false;
+      view.current = { progress: 0, hubYaw: 0, target: -1 };
+      setHere(null);
+    };
+  }, [showScene, measure]);
 
-      const y = window.scrollY;
-      const maxScroll =
-        document.documentElement.scrollHeight - window.innerHeight;
+  /* 拦截站内所有指着房间的 # 锚点 ——
+     导航栏、Hero 的「看看我的作品」都是这种链接，统一在这里转成「进门」，
+     页面里各处的链接就一行都不用改。 */
+  useEffect(() => {
+    if (!showScene) return;
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest?.('a[href^="#"]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const id = anchor.getAttribute("href")!.slice(1);
+      const index = roomIndex(id);
+      if (index < 0) return;
+      // 捕获阶段就拦掉，并且不让事件继续冒泡 ——
+      // 导航栏用的是 next/link，它自己也会处理这个 # 锚点去滚动，
+      // 不拦住的话两边会同时动手。
+      event.preventDefault();
+      event.stopPropagation();
+      enter(index);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [showScene, enter]);
 
-      // 路标：每个区块正中 → 对应展位的角度，页面底部 → 再往前转小半格。
-      // 相机站得远近只影响轨道半径，圆厅和展位的角度一个不动。
-      const path: [number, number][] = STATIONS.map((station, i) => [
-        marks[i],
-        station.angle,
-      ]);
-      path.push([
-        maxScroll,
-        STATIONS[STATIONS.length - 1].angle + RING_STEP * 0.55,
-      ]);
+  /* 主循环：转身 → 行走 → 门扇开合 */
+  useEffect(() => {
+    if (!showScene) return;
+    let raf = 0;
+    let last = 0;
 
-      // 万一某个区块没量到（长度为 0），强行拉成递增，避免相机乱跳
-      for (let i = 1; i < path.length; i++) {
-        if (path[i][0] <= path[i - 1][0]) path[i][0] = path[i - 1][0] + 1;
-      }
+    const tick = () => {
+      const now = performance.now();
+      // 用真实间隔推进，掉帧时不会变慢；上限 50ms 防止切回标签页时一次跳完
+      const dt = Math.min(0.05, last ? (now - last) / 1000 : 1 / 60);
+      last = now;
 
-      if (y <= path[0][0]) {
-        targetAngle.current = path[0][1];
-      } else {
-        targetAngle.current = path[path.length - 1][1];
-        for (let i = 1; i < path.length; i++) {
-          if (y <= path[i][0]) {
-            const [s0, a0] = path[i - 1];
-            const [s1, a1] = path[i];
-            targetAngle.current = a0 + (a1 - a0) * ((y - s0) / (s1 - s0));
-            break;
+      const v = view.current;
+      const w = walk.current;
+
+      if (w.active) {
+        if (w.phase === "turn") {
+          /* 先转身面对门，再往前走。不这么做的话，从门厅任意朝向一步跨出去，
+             视线会猛地甩过来。 */
+          w.t = Math.min(1, w.t + dt / TURN_SECONDS);
+          const e = 1 - Math.pow(1 - w.t, 3);
+          v.hubYaw = w.yawFrom + (w.yawTarget - w.yawFrom) * e;
+          if (w.t >= 1) {
+            w.phase = "walk";
+            w.t = 0;
+            v.target = w.toRoom;
+            v.hubYaw = w.yawTarget;
+          }
+        } else {
+          /* 行走用「时间」推进，不用指数逼近 —— 后者一开始冲得极快，
+             门刚开一条缝人已经贴上去了，完全不像走路。 */
+          w.t = Math.min(1, w.t + dt / WALK_SECONDS);
+          const t = w.t;
+          // easeInOutCubic：起步慢、中段快、收尾稳稳停住
+          const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          v.progress = w.from + (w.to - w.from) * e;
+          if (t >= 1) {
+            w.active = false;
+            setWalking(false);
+            setHere(w.toRoom >= 0 ? w.toRoom : null);
           }
         }
+      } else if (v.target < 0) {
+        v.progress = 0;
+      } else {
+        v.progress = 1;
       }
 
-      // 走到某个展位前时，把四周压暗一点，板子当主角
-      const reach = window.innerHeight * 0.7;
-      let nearest = 0;
-      marks.forEach((mark, i) => {
-        if (i === 0) return;
-        const f = Math.max(0, 1 - Math.abs(y - mark) / reach);
-        if (f > nearest) nearest = f;
+      /* 门扇开度由「走到哪了」决定，不由「点没点」决定 ——
+         否则门会瞬间弹开，等于没有「推开」这个动作。
+         起点压到 0.04，点击后立刻能看到门动，不至于以为按钮没生效。 */
+      ROOMS.forEach((_, i) => {
+        const relevant = w.active && w.phase === "walk" && w.toRoom === i
+          ? v.progress
+          : v.target === i
+          ? v.progress
+          : 0;
+        const want = THREE.MathUtils.smoothstep(relevant, 0.04, 0.36);
+        openness.current[i] += (want - openness.current[i]) * 0.12;
       });
-      if (shade.current) {
-        shade.current.style.opacity = (0.45 + 0.55 * nearest).toFixed(3);
-      }
-    };
 
-    // 滚动事件比帧还密，攒到下一帧再写一次样式
-    let queued = 0;
-    const schedule = () => {
-      if (queued) return;
-      queued = window.requestAnimationFrame(() => {
-        queued = 0;
-        onScroll();
-      });
+      raf = requestAnimationFrame(tick);
     };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [showScene]);
 
-    onScroll();
-    window.addEventListener("scroll", schedule, { passive: true });
-    const onResize = () => {
-      syncView();
-      schedule();
+  /* 门厅里滚轮转向；房间里按 Esc 退回门厅 */
+  useEffect(() => {
+    if (!showScene) return;
+    const onWheel = (event: WheelEvent) => {
+      const v = view.current;
+      if (v.target >= 0 || walk.current.active) return;
+      event.preventDefault();
+      v.hubYaw += event.deltaY * 0.0016;
     };
-    window.addEventListener("resize", onResize);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && view.current.target >= 0) leave();
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [showScene, leave]);
 
-    // 渲染循环万一没跑起来（显卡抽风），把空间模式撤掉，别让正文一直藏着
+  /* 渲染循环万一没跑起来（显卡抽风），把空间模式撤掉，别让正文一直藏着 */
+  useEffect(() => {
+    if (!showScene) return;
     const guard = window.setTimeout(() => {
       if (!painted.current) setBroken(true);
     }, 3000);
-
-    return () => {
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", onResize);
-      window.cancelAnimationFrame(queued);
-      window.clearTimeout(guard);
-      document.documentElement.classList.remove("spatial-on");
-      boards.current.forEach((board) => {
-        if (!board.el) return;
-        board.el.style.visibility = "";
-        board.el.style.transform = "";
-        board.el.style.opacity = "";
-        board.el.style.pointerEvents = "";
-      });
-      if (shade.current) shade.current.style.opacity = "";
-      // 摘掉空间模式后排版又变了，把路标量回普通文档流的值
-      measure();
-    };
-  }, [showScene, measure, syncView]);
+    return () => window.clearTimeout(guard);
+  }, [showScene]);
 
   return (
-    <div
-      aria-hidden="true"
-      className="fixed inset-0 z-0 pointer-events-none overflow-hidden"
-      style={{
-        background: `radial-gradient(120% 90% at 50% 8%, #141034 0%, #06071f 45%, ${SPACE_COLOR} 100%)`,
-      }}
-    >
-      {showScene && (
-        <SceneErrorBoundary>
-          <Canvas
-            dpr={[1, 1.75]}
-            gl={{ antialias: true, powerPreference: "high-performance" }}
-            camera={{
-              position: [0, EYE, R_CAM],
-              fov: 45,
-              near: 0.1,
-              far: 140,
-            }}
-            onCreated={({ gl }) => {
-              // 上下文丢了就直接撤掉 3D，别让页面卡在一张黑画布上
-              gl.domElement.addEventListener("webglcontextlost", (event) => {
-                event.preventDefault();
-                setBroken(true);
-              });
-            }}
-          >
-            <Scene
-              targetAngle={targetAngle}
-              angleRef={angleRef}
-              view={view}
-              boards={boards}
-              painted={painted}
-            />
-          </Canvas>
-        </SceneErrorBoundary>
-      )}
-
-      {/* 四周压暗一点：解说板是主角，空间只做背景 */}
+    <>
       <div
-        ref={shade}
-        className="absolute inset-0"
+        aria-hidden="true"
+        className="fixed inset-0 z-0 overflow-hidden"
         style={{
-          background:
-            "radial-gradient(ellipse 78% 62% at 50% 52%, rgba(0,3,25,0.55) 0%, rgba(0,3,25,0.28) 55%, rgba(0,3,25,0.55) 100%)",
+          background: `radial-gradient(120% 90% at 50% 8%, #141034 0%, #06071f 45%, ${SPACE_COLOR} 100%)`,
         }}
-      />
-    </div>
+      >
+        {showScene && (
+          <SceneErrorBoundary>
+            <Canvas
+              dpr={[1, 1.75]}
+              gl={{ antialias: true, powerPreference: "high-performance" }}
+              camera={{ position: [0, EYE, 0], fov: 45, near: 0.1, far: 260 }}
+              onCreated={({ gl }) => {
+                // 上下文丢了就直接撤掉 3D，别让页面卡在一张黑画布上
+                gl.domElement.addEventListener("webglcontextlost", (event) => {
+                  event.preventDefault();
+                  setBroken(true);
+                });
+              }}
+            >
+              <Hall
+                view={view}
+                stages={stages}
+                plates={plates}
+                sizes={sizes}
+                openness={openness}
+                painted={painted}
+                onEnter={enter}
+              />
+            </Canvas>
+          </SceneErrorBoundary>
+        )}
+
+        {/* 四周压暗一点：解说板是主角，空间只做背景 */}
+        <div
+          ref={shade}
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 78% 62% at 50% 52%, rgba(0,3,25,0.5) 0%, rgba(0,3,25,0.24) 55%, rgba(0,3,25,0.5) 100%)",
+          }}
+        />
+      </div>
+
+      {/* 交互层：房名牌、门厅提示、房间导航。
+          必须放在上面那层（z-0，自成层叠上下文）之外，才能压在正文（z-10）之上。 */}
+      {showScene && (
+        <div className="hall-ui fixed inset-0 z-20">
+          {ROOMS.map((room, i) => (
+            <button
+              key={room.id}
+              type="button"
+              ref={(el) => {
+                plates.current[i] = el;
+              }}
+              className="hall-plate"
+              style={{ ["--plate-accent" as string]: room.accent }}
+              onClick={() => enter(i)}
+              aria-label={`推门进入${room.label}`}
+            >
+              <span className="hall-plate-no">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="hall-plate-name">{room.label}</span>
+            </button>
+          ))}
+
+          {/* 门厅提示：只在门厅里显示 */}
+          <div className="hall-hint" data-hidden={walking || here !== null}>
+            <span className="hall-hint-line">
+              滚轮左右转一圈看看，点门上的房名进去
+            </span>
+            <button
+              type="button"
+              className="hall-door-btn"
+              onClick={() => enter(1)}
+            >
+              <FaDoorOpen />
+              直接进 · 作品房
+            </button>
+          </div>
+
+          {/* 房间里的门牌导航 */}
+          {here !== null && !walking && (
+            <div className="hall-nav">
+              <button type="button" className="hall-nav-btn" onClick={() => step(-1)}>
+                <FaArrowLeft className="me-1.5" />
+                上一间
+              </button>
+              <button
+                type="button"
+                className="hall-nav-btn hall-nav-btn--back"
+                onClick={leave}
+              >
+                回到门厅
+              </button>
+              <span className="hall-nav-label">
+                {here + 1} / {ROOMS.length} · {ROOMS[here].label}
+              </span>
+              <button type="button" className="hall-nav-btn" onClick={() => step(1)}>
+                下一间
+                <FaArrowRight className="ms-1.5" />
+              </button>
+            </div>
+          )}
+
+          {walking && (
+            <div className="hall-nav">
+              <span className="hall-nav-label">正在前往…</span>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 };
 

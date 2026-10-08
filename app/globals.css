@@ -214,6 +214,24 @@
     min-height: 100vh;
     padding: 0;
   }
+  /* 滚动已经不是导航手段（改成推门进房间了），留着它只会让板子漂走。
+     锁住之后页面高度还在，但滚不动 —— 和 /room 那个样板里的处理一致。 */
+  html.spatial-on,
+  html.spatial-on body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  /* 空间模式下 main 只是个「摆位的坐标系」，真正的点击目标是 3D 里的门和
+     当前那块解说板（板子的 pointer-events 由投影脚本单独打开）。
+     不把它关掉的话，main 整片盖在画布上，门就永远点不中了。
+     导航栏是 main 里的例外，单独放行。 */
+  html.spatial-on main {
+    pointer-events: none;
+  }
+  html.spatial-on .floating-nav {
+    pointer-events: auto;
+  }
   html.spatial-on .board {
     position: absolute;
     left: 0;
@@ -421,4 +439,677 @@
     letter-spacing: 0.02em;
     line-height: 1.3;
   }
+}
+
+/* ==========================================================================
+   证书灯箱（yet-another-react-lightbox-lite · MIT）
+   --------------------------------------------------------------------------
+   这个库把主题变量都挂在 --yarll__* 上，是最省事的改法；灯箱是 portal 到
+   body 上的，所以这些变量要写在 :root，不能写在某个局部容器里。
+   放在最外层（不在 @layer 里）也是为了稳压库自己的样式 —— 它那 3.7KB 的
+   styles.css 是直接 import 进来的，没有层级保护，靠顺序和权重取胜。
+   ========================================================================== */
+:root {
+  /* 深蓝底而不是纯黑，和展厅的夜色是同一个色系 */
+  --yarll__backdrop_color: rgba(4, 6, 15, 0.94);
+  --yarll__foreground_color: #e8ecff;
+  --yarll__button_color: rgba(232, 236, 255, 0.72);
+  --yarll__button_color_active: #ffcf00;
+  /* 焦点环用乐高黄，键盘用户看得出落点 */
+  --yarll__button_focus_outline: 3px solid #ffcf00;
+  --yarll__button_focus_box_shadow: 0 0 0 3px rgba(0, 0, 0, 0.7);
+  --yarll__portal_zindex: 9999;
+}
+
+/* 图下方的说明条：证书名 + 颁发机构 + 第几张 */
+.yarll-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  margin-top: 14px;
+  padding: 10px 16px;
+  border: 2px solid rgba(0, 0, 0, 0.75);
+  border-radius: 10px;
+  background: rgba(16, 20, 58, 0.92);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  color: #e8ecff;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.yarll-caption b {
+  font-weight: 700;
+}
+.yarll-caption > span {
+  color: #aab3d8;
+  font-size: 12px;
+}
+/* 计数靠右推开，翻页时一眼知道还剩几张 */
+.yarll-caption-count {
+  margin-left: auto;
+  color: #ffcf00 !important;
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  /* 打印简历时不该出现灯箱 */
+  .yarll__portal {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   八房大厅的交互层（房名牌 / 门厅提示 / 房间导航）
+   --------------------------------------------------------------------------
+   这一层由 components/ui/Scene3D.tsx 渲染。房名牌由投影脚本每帧写 transform，
+   所以容器不接收鼠标事件，只有牌子自己开 pointer-events。
+   ========================================================================== */
+.hall-ui {
+  pointer-events: none;
+}
+
+/* 房名牌：投影到各自门洞上方。初始 opacity 0，脚本接管后才逐个亮起来 */
+.hall-plate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 16px;
+  border: 2px solid rgba(0, 0, 0, 0.8);
+  border-radius: 9px;
+  background: rgba(22, 29, 77, 0.95);
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--plate-accent, #2f7ff0),
+    5px 6px 0 rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%);
+  transition: border-color 0.15s ease;
+  /* 缩放写在 transform 里，这里不能加 transition，否则每帧都在补间 */
+  will-change: transform;
+}
+.hall-plate:hover {
+  border-color: color-mix(in srgb, var(--plate-accent, #2f7ff0) 70%, #ffffff);
+}
+.hall-plate:focus-visible {
+  outline: 3px solid #ffcf00;
+  outline-offset: 3px;
+}
+.hall-plate-no {
+  color: var(--plate-accent, #2f7ff0);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.hall-plate-name {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* 门厅提示：一块乐高积木按钮 */
+.hall-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transform: translateX(-50%);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+/* 镜头一动就淡出，别挡在半路上 */
+.hall-hint[data-hidden="true"] {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
+  pointer-events: none;
+}
+.hall-hint-line {
+  color: #8892c4;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+}
+.hall-door-btn {
+  display: inline-flex;
+  height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 30px;
+  border: 2px solid rgba(0, 0, 0, 0.78);
+  border-radius: 11px;
+  background: #2f7ff0;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.hall-door-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 9px 9px 0 rgba(0, 0, 0, 0.55);
+}
+.hall-door-btn:active {
+  transform: translateY(1px);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+.hall-door-btn:focus-visible {
+  outline: 3px solid #ffcf00;
+  outline-offset: 3px;
+}
+
+/* 房间里的门牌导航 */
+.hall-nav {
+  position: absolute;
+  left: 50%;
+  bottom: 4.5vh;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 2px solid rgba(0, 0, 0, 0.75);
+  border-radius: 12px;
+  background: rgba(13, 19, 48, 0.92);
+  box-shadow: 0 0 0 2px rgba(47, 127, 240, 0.45), 6px 7px 0 rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  transform: translateX(-50%);
+  animation: hall-nav-in 0.4s cubic-bezier(0.22, 1.25, 0.36, 1);
+}
+@keyframes hall-nav-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+}
+.hall-nav-btn {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  padding: 0 16px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: transparent;
+  color: #dfe4ff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.hall-nav-btn:hover {
+  border-color: #ffcf00;
+  color: #ffcf00;
+}
+.hall-nav-btn:focus-visible {
+  outline: 3px solid #ffcf00;
+  outline-offset: 2px;
+}
+/* 中间那枚是回门厅，稍微强调一点 */
+.hall-nav-btn--back {
+  border-color: rgba(47, 127, 240, 0.55);
+  background: rgba(47, 127, 240, 0.12);
+}
+.hall-nav-label {
+  padding: 0 6px;
+  color: #8892c4;
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hall-hint,
+  .hall-nav {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================
+   传送门（cmdk · MIT）
+   --------------------------------------------------------------------------
+   cmdk 是完全不带样式的，靠 [cmdk-*] 属性选择器挂钩子，所以外观全在这里写。
+   风格上继续贴乐高：厚描边、硬投影、亮色高亮条。
+   ========================================================================== */
+.cmdk-lego-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  background: rgba(4, 6, 15, 0.72);
+  backdrop-filter: blur(3px);
+  animation: cmdk-fade 0.18s ease;
+}
+
+.cmdk-lego-content {
+  position: fixed;
+  top: 18%;
+  left: 50%;
+  z-index: 8001;
+  width: min(92vw, 560px);
+  transform: translateX(-50%);
+  overflow: hidden;
+  border: 2px solid rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+  background: #0d1330;
+  /* 外圈一层乐高黄描边 + 右下硬投影，和站内按钮同一套语言 */
+  box-shadow: 0 0 0 2px rgba(255, 207, 0, 0.5),
+    9px 10px 0 rgba(0, 0, 0, 0.55);
+  animation: cmdk-pop 0.2s cubic-bezier(0.22, 1.3, 0.36, 1);
+}
+
+@keyframes cmdk-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cmdk-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.97);
+  }
+}
+
+/* 搜索框 */
+[cmdk-input] {
+  width: 100%;
+  padding: 16px 18px;
+  border: 0;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.6);
+  background: transparent;
+  color: #ffffff;
+  font-size: 15px;
+  outline: none;
+}
+[cmdk-input]::placeholder {
+  color: #6f7aab;
+}
+
+/* 结果区 */
+[cmdk-list] {
+  max-height: min(56vh, 420px);
+  overflow-y: auto;
+  padding: 8px;
+  scroll-padding-block-end: 8px;
+}
+
+[cmdk-group-heading] {
+  padding: 10px 10px 6px;
+  color: #7d88b8;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* 每一条 */
+[cmdk-item] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: #dfe4ff;
+  font-size: 13.5px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+/* 选中态：亮色积木块，一眼看出回车会执行哪一条 */
+[cmdk-item][data-selected="true"] {
+  border-color: rgba(0, 0, 0, 0.7);
+  background: #ffcf00;
+  color: #070a1e;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+}
+[cmdk-item][data-selected="true"] .cmdk-lego-hint {
+  color: rgba(7, 10, 30, 0.7);
+}
+[cmdk-item][data-disabled="true"] {
+  color: #5b628f;
+  opacity: 0.45;
+}
+
+.cmdk-lego-icon {
+  display: inline-flex;
+  width: 18px;
+  justify-content: center;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* 右侧的补充说明（邮箱地址、格式说明…） */
+.cmdk-lego-hint {
+  margin-left: auto;
+  color: #7d88b8;
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+[cmdk-empty] {
+  padding: 22px 16px;
+  color: #7d88b8;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 窄屏：面板贴着底部，手指够得着 */
+@media (max-width: 640px) {
+  .cmdk-lego-content {
+    top: auto;
+    bottom: 0;
+    width: 100vw;
+    border-radius: 12px 12px 0 0;
+    transform: none;
+  }
+  @keyframes cmdk-pop {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+  }
+  [cmdk-list] {
+    max-height: 52vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmdk-lego-overlay,
+  .cmdk-lego-content {
+    animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   作品详情层
+   --------------------------------------------------------------------------
+   点作品卡弹出来的一层说明：这个项目在解决什么、技术要点、进去先看哪里。
+   板子上的卡片空间有限，放不下这些，所以借一层浮层展开，不改变板子高度
+   （板子一改高，3D 相机的停靠点就跟着偏）。
+   ========================================================================== */
+.pdv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 6, 15, 0.78);
+  backdrop-filter: blur(4px);
+  animation: pdv-fade 0.18s ease;
+}
+
+@keyframes pdv-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.pdv-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(94vw, 780px);
+  max-height: min(88vh, 720px);
+  overflow: hidden;
+  border: 2px solid rgba(0, 0, 0, 0.85);
+  border-radius: 14px;
+  background: linear-gradient(158deg, #10143a 0%, #0a0d28 100%);
+  /* 蓝色展位描边 + 硬投影，用作品房自己的配色 */
+  box-shadow: 0 0 0 2px rgb(47 127 240 / 0.55),
+    10px 12px 0 rgba(0, 0, 0, 0.55);
+  animation: pdv-rise 0.24s cubic-bezier(0.22, 1.25, 0.36, 1);
+}
+
+@keyframes pdv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+
+/* 关闭按钮压在右上角，不占正文的排版空间 */
+.pdv-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(0, 0, 0, 0.8);
+  border-radius: 9px;
+  background: rgba(10, 13, 40, 0.9);
+  color: #ffffff;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.pdv-close:hover {
+  transform: translateY(-1px);
+  color: #ffcf00;
+}
+
+/* 封面：固定比例，图不会被压扁 */
+.pdv-cover {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.6);
+  background: #13162d;
+}
+.pdv-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* 正文区：能滚，长内容不会把面板撑破 */
+.pdv-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 22px 22px;
+}
+
+.pdv-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.pdv-head h3 {
+  font-size: 19px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.pdv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pdv-summary {
+  margin-top: 12px;
+  color: #c3cbe8;
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+.pdv-h4 {
+  margin-top: 18px;
+  color: #7fb2ff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.pdv-points {
+  margin-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.pdv-points li {
+  position: relative;
+  padding-left: 17px;
+  color: #dfe4ff;
+  font-size: 13px;
+  line-height: 1.65;
+}
+/* 方形小方砖当项目符号，和乐高主题一致 */
+.pdv-points li::before {
+  position: absolute;
+  top: 0.62em;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid rgba(0, 0, 0, 0.7);
+  border-radius: 2px;
+  background: rgb(47 127 240);
+  content: "";
+}
+
+/* 「进去先看这里」—— 给访客一条明确的动线，别让他自己瞎点 */
+.pdv-try {
+  margin-top: 18px;
+  padding: 13px 15px;
+  border: 2px solid rgb(47 127 240 / 0.5);
+  border-radius: 10px;
+  background: rgb(47 127 240 / 0.1);
+}
+.pdv-try-label {
+  display: inline-block;
+  color: #7fb2ff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.pdv-try p {
+  margin-top: 6px;
+  color: #dfe4ff;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.pdv-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+/* 主按钮：亮色积木 */
+.pdv-open {
+  display: inline-flex;
+  height: 44px;
+  align-items: center;
+  padding: 0 24px;
+  border: 2px solid rgba(0, 0, 0, 0.75);
+  border-radius: 10px;
+  background: rgb(47 127 240);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.pdv-open:hover {
+  transform: translateY(-2px);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+}
+.pdv-open:active {
+  transform: translateY(1px);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+}
+/* 次按钮：只描边，不抢主按钮 */
+.pdv-dismiss {
+  height: 44px;
+  padding: 0 20px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  background: transparent;
+  color: #c3cbe8;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.pdv-dismiss:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+}
+
+/* 窄屏：面板铺满，封面收矮，正文优先 */
+@media (max-width: 640px) {
+  .pdv-overlay {
+    padding: 0;
+  }
+  .pdv-panel {
+    width: 100vw;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .pdv-cover {
+    aspect-ratio: 16 / 10;
+    max-height: 32vh;
+  }
+  .pdv-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pdv-open,
+  .pdv-dismiss {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdv-overlay,
+  .pdv-panel {
+    animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   持续产出热力图
+   ========================================================================== */
+/* 挂载前的占位框。定住高度，真日历替换进来时不会把板子顶一下 */
+.gh-heatmap-skeleton {
+  display: flex;
+  height: 112px;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 138, 0, 0.28);
+  border-radius: 8px;
+  color: #7d88b8;
+  font-size: 11.5px;
+}
+
+/* 热力图自己的字号是 SVG 文本，这里统一压一下，免得在板子上显得散 */
+.gh-heatmap svg {
+  display: block;
+}
+.gh-heatmap text {
+  fill: #7d88b8;
 }

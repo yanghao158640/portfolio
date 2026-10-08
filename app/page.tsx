@@ -12,6 +12,7 @@ import Approach from "@/components/Approach";
 import Experience from "@/components/Experience";
 import Certifications from "@/components/Certifications";
 import RecentProjects from "@/components/RecentProjects";
+import CommandPalette from "@/components/CommandPalette";
 import { FloatingNav } from "@/components/ui/FloatingNavbar";
 
 /** 3D 背景层只在浏览器里跑，关掉 SSR 预渲染 */
@@ -24,6 +25,9 @@ const Home = () => {
     <>
       {/* 固定在底层的 3D 空间，窄屏 / 关闭动效时退回静态渐变 */}
       <Scene3D />
+
+      {/* Ctrl/⌘ + K 传送门：跳过滚动，直接去某间房或执行一个动作 */}
+      <CommandPalette />
 
       <main className="relative z-10 flex justify-center items-center flex-col overflow-hidden mx-auto sm:px-10 px-5">
         <div className="max-w-7xl w-full">
