@@ -58,13 +58,14 @@ const Footer = () => {
                 />
               </a>
 
+              {/* 次按钮用「中心铺开」：静止时是描边款，悬停才被展位色填实 */}
               <MagicButton
                 title="下载简历 PDF"
                 icon={<FaDownload />}
                 position="right"
                 href="/resume/yangyuhao-resume.pdf"
                 download="杨豫豪-简历.pdf"
-                otherClasses="toy-btn-ghost"
+                otherClasses="toy-btn-fill"
               />
             </div>
           </div>

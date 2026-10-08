@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>杨豫豪 · 简历</title>
+<style>
+  /* ---------------------------------------------------------------
+     一页纸 A4 简历（打印版）
+     设计取向：放给面试官看的纸。白底、墨色文字、单一强调色，
+     层级只靠字号 / 字重 / 细线区分，不铺色块、不用图标，黑白打印同样清楚。
+     页边距交给 @page，正文按内容流排，认证区两列收尾。
+     --------------------------------------------------------------- */
+
+  @page { size: A4; margin: 11mm 13mm 9.5mm; }
+
+  :root {
+    --ink:      #101216;   /* 正文墨色 */
+    --ink-sub:  #33384a;   /* 次要正文 */
+    --muted:    #6b7285;   /* 辅助信息 */
+    --hair:     #dcdfe6;   /* 细分割线 */
+    --accent:   #0f6e56;   /* 强调：深墨绿，与线上简历页一致 */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC",
+                 "HarmonyOS Sans SC", "Noto Sans SC", system-ui, sans-serif;
+    color: var(--ink);
+    font-size: 9.5pt;
+    line-height: 1.56;
+    background: #fff;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* ============================ 抬头 ============================ */
+
+  .head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8mm;
+    padding-bottom: 3mm;
+    border-bottom: 0.6mm solid var(--accent);
+  }
+
+  .name {
+    font-size: 23pt;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0.05em;
+  }
+
+  .role {
+    margin-top: 2.2mm;
+    font-size: 10pt;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.03em;
+  }
+
+  .contact {
+    list-style: none;
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: end;
+    column-gap: 7mm;
+    row-gap: 0.6mm;
+    font-size: 8.8pt;
+    line-height: 1.7;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .contact a { color: var(--ink-sub); }
+
+  /* ============================ 简介 ============================ */
+
+  .summary {
+    margin-top: 3.6mm;
+    font-size: 9.6pt;
+    line-height: 1.75;
+    color: var(--ink-sub);
+  }
+
+  .summary b { color: var(--ink); font-weight: 700; }
+
+  /* ========================== 小节标题 ========================== */
+
+  .sec { margin-top: 4mm; }
+
+  /* 两栏组：教育背景与技能并排，两条短内容共用一个高度档，页面更省也更整齐 */
+  .duo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 9mm;
+  }
+
+  .sec h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 2.4mm;
+    padding-bottom: 1.4mm;
+    margin-bottom: 2.4mm;
+    border-bottom: 0.25mm solid var(--hair);
+    font-size: 10pt;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .sec h2 .no {
+    font-size: 8.6pt;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+
+  .sec h2 .note {
+    margin-left: auto;
+    font-size: 8.6pt;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+
+  /* ============================ 条目 ============================ */
+
+  .item + .item { margin-top: 2.6mm; }
+
+  .item-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6mm;
+  }
+
+  .item-top .t {
+    font-size: 9.8pt;
+    font-weight: 700;
+  }
+
+  .item-top .t .tag {
+    margin-left: 2mm;
+    font-size: 8.4pt;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  /* 技术栈跟在标题后面，省掉一整行，扫描时仍是显眼的关键词 */
+  .item-top .t .stack {
+    margin-left: 2mm;
+    font-size: 8.4pt;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .item-top .when {
+    flex: none;
+    font-size: 8.6pt;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .item-top .when a { color: var(--accent); }
+
+  .item .desc {
+    margin-top: 0.5mm;
+    color: var(--ink-sub);
+    text-wrap: pretty;
+  }
+
+  .item .tech {
+    margin-top: 0.4mm;
+    font-size: 8.6pt;
+    color: var(--muted);
+  }
+
+  /* ======================= 教育 / 技能 / 认证 ======================= */
+
+  .edu-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6mm;
+  }
+
+  .edu-line .school { font-size: 9.8pt; font-weight: 700; }
+  .edu-line .school span { font-weight: 400; color: var(--ink-sub); }
+  .edu-line .when { font-size: 8.6pt; color: var(--muted); white-space: nowrap; }
+
+  .rows { list-style: none; display: grid; gap: 1.2mm; }
+  .rows li { display: flex; gap: 2.4mm; }
+  .rows .k {
+    flex: none;
+    width: 16mm;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .rows .v { color: var(--ink-sub); }
+
+  .certs {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 9mm;
+    row-gap: 1.6mm;
+  }
+
+  .certs li {
+    padding-left: 3.2mm;
+    border-left: 0.35mm solid var(--hair);
+    line-height: 1.38;
+  }
+
+  .certs .n {
+    display: block;
+    font-size: 8.9pt;
+    font-weight: 700;
+  }
+
+  .certs .i {
+    display: block;
+    font-size: 8.2pt;
+    color: var(--muted);
+  }
+
+  /* ============================ 页脚 ============================ */
+
+  .foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6mm;
+    margin-top: 3.6mm;
+    padding-top: 2mm;
+    border-top: 0.25mm solid var(--hair);
+    font-size: 8.5pt;
+    color: var(--muted);
+  }
+
+  .foot a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+  <header class="head">
+    <div>
+      <h1 class="name">杨豫豪</h1>
+      <p class="role">环境工程 × AI 技术探索者</p>
+    </div>
+    <ul class="contact">
+      <li>17719891195</li>
+      <li><a href="mailto:2813573523@qq.com">2813573523@qq.com</a></li>
+      <li>河南 · 郑州</li>
+      <li><a href="https://github.com/yanghao158640">github.com/yanghao158640</a></li>
+    </ul>
+  </header>
+
+  <p class="summary">
+    河南城建学院环境工程专业 2026 级本科生。习惯把想法做成<b>能打开、能用的东西</b>：3 个已上线作品、多套 AI 自动化脚本与设计物料。
+    系统使用 DeepSeek、Kimi、通义千问、豆包、Trae 等工具，覆盖提示词工程、智能体搭建、大模型微调与数据分析，已获 <b>8 项</b> AI 领域专业认证。
+  </p>
+
+  <!-- ============ 01 代表作品 ============ -->
+  <section class="sec">
+    <h2><span class="no">01</span>代表作品<span class="note">3 个在线可访问 · 欢迎点开试玩</span></h2>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="t">坦克大战<span class="tag">独立开发</span><span class="stack">JavaScript · Canvas · 游戏</span></span>
+        <span class="when"><a href="https://yanghao158640.github.io/competition-bootcamp/tank-game.html">在线试玩 →</a></span>
+      </div>
+      <p class="desc">原生 JavaScript + Canvas 单文件实现的经典坦克对战：键盘操控、敌军 AI、出生保护、碰撞检测与关卡节奏设计。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="t">飞机大战<span class="tag">独立开发</span><span class="stack">JavaScript · Canvas · 游戏</span></span>
+        <span class="when"><a href="https://yanghao158640.github.io/plane-game/">在线试玩 →</a></span>
+      </div>
+      <p class="desc">逐帧循环驱动的完整小游戏：战机操控、敌机与 BOSS 刷新、碰撞判定与计分系统，已上线可试玩。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="t">吴恩达《机器学习》学习汇报<span class="tag">独立完成</span><span class="stack">HTML · 演示文稿 · 机器学习</span></span>
+        <span class="when"><a href="https://yanghao158640.github.io/competition-bootcamp/ml-report/">在线查看 →</a></span>
+      </div>
+      <p class="desc">13 页 HTML 交互式演示文稿，把课程核心概念与实践理解整理成可在线翻阅的汇报材料。</p>
+    </div>
+  </section>
+
+  <!-- ============ 02 实践经历 ============ -->
+  <section class="sec">
+    <h2><span class="no">02</span>实践经历</h2>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="t">Python 自动化脚本<span class="tag">独立开发</span></span>
+        <span class="when">2025 — 至今</span>
+      </div>
+      <p class="desc">借助 AI 工具完成文件自动归类脚本，把日常重复劳动交给程序，AI 能力转化为实际生产力。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="t">AI 工具应用实践<span class="tag">深度使用</span></span>
+        <span class="when">2025 — 至今</span>
+      </div>
+      <p class="desc">系统使用 DeepSeek、Kimi、通义千问、豆包、Trae 等工具，覆盖数据分析、写作辅助与工作流设计。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="t">海报设计 &amp; 演示文稿制作<span class="tag">AI 辅助创作</span></span>
+        <span class="when">2025</span>
+      </div>
+      <p class="desc">用 AI 辅助完成多套校园活动海报，独立制作演示文稿用于班级展示；部分文稿被校内文学社刊采用。</p>
+    </div>
+
+    <div class="item">
+      <div class="item-top">
+        <span class="t">吴恩达《机器学习》课程<span class="tag">课程学习 · 已获证书</span></span>
+        <span class="when">2025</span>
+      </div>
+      <p class="desc">完成课程学习并获证书，掌握监督学习、无监督学习、神经网络等核心概念，并整理为可在线翻阅的学习汇报。</p>
+    </div>
+  </section>
+
+  <!-- ============ 03 教育背景 / 04 技能与工具 ============ -->
+  <section class="sec">
+    <h2><span class="no">03</span>教育背景</h2>
+    <div class="edu-line">
+      <span class="school">河南城建学院 <span>· 环境工程（本科在读）</span></span>
+      <span class="when">2026 — 至今</span>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2><span class="no">04</span>技能与工具</h2>
+    <ul class="rows">
+      <li><span class="k">技能</span><span class="v">AI 工具应用 · 海报设计 · 写作能力 · 演示文稿 / PPT · Python 编程 · 数据分析 · 小游戏制作</span></li>
+      <li><span class="k">常用工具</span><span class="v">DeepSeek · Kimi · 通义千问 · 豆包 · Trae · Python</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ 05 认证 ============ -->
+  <section class="sec">
+    <h2><span class="no">05</span>AI 领域认证<span class="note">8 项 · 2026.07 批次</span></h2>
+    <ul class="certs">
+      <li><span class="n">Prompt Engineer</span><span class="i">讯飞星火 × Datawhale</span></li>
+      <li><span class="n">Agent Engineer</span><span class="i">Datawhale × 蚂蚁集团百宝箱</span></li>
+      <li><span class="n">Fine-tuning Engineer</span><span class="i">Datawhale × 科大讯飞星辰</span></li>
+      <li><span class="n">人工智能训练师（高级）</span><span class="i">阿里云 达摩院</span></li>
+      <li><span class="n">AI+ 编程能力认证</span><span class="i">Datawhale × 豆包 MarsCode</span></li>
+      <li><span class="n">人工智能初识微认证</span><span class="i">华为 · 有效期至 2028.08</span></li>
+      <li><span class="n">AI4S Cup · Python 基础能力认证</span><span class="i">北京科学智能研究院 · 深势科技</span></li>
+      <li><span class="n">Masterclass on Artificial Intelligence</span><span class="i">国际劳工组织国际培训中心（ITC）</span></li>
+    </ul>
+  </section>
+
+  <footer class="foot">
+    <span>在线作品集：<a href="https://yanghao158640.github.io/">yanghao158640.github.io</a></span>
+    <span>证书原件与作品演示均可在线查看</span>
+  </footer>
+
+</body>
+</html>

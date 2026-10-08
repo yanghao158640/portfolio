@@ -24,7 +24,7 @@ const RecentProjects = () => {
                 href={item.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="brick group flex min-h-0 flex-col overflow-hidden
+                className="brick proj-card group flex min-h-0 flex-col overflow-hidden
                   transition duration-300 hover:-translate-y-1"
               >
                 <div
@@ -57,9 +57,17 @@ const RecentProjects = () => {
                     ))}
                   </div>
 
-                  <p className="mt-3 flex items-center text-[12px] text-purple">
-                    {item.linkLabel}
-                    <FaLocationArrow className="ms-2" />
+                  {/* 这块不是真按钮 —— 整张卡才是链接。做成描边轨道的模样，
+                      鼠标落在卡片任何位置它都会亮起来（见 globals.css 的 .proj-card） */}
+                  <p className="mt-3">
+                    <span className="toy-keys text-[12px]">
+                      <i className="toy-key toy-key-top" />
+                      <i className="toy-key toy-key-bottom" />
+                      <span className="toy-keys-text">
+                        {item.linkLabel}
+                        <FaLocationArrow className="ms-2" />
+                      </span>
+                    </span>
                   </p>
                 </div>
               </a>

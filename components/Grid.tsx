@@ -52,7 +52,11 @@ const Grid = () => {
 
             {/* 右：地球 + 工具栈 */}
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="relative h-[260px] min-h-0 flex-1 overflow-hidden rounded-[10px] border-2 border-black/50 bg-[#060b23] lg:h-auto">
+              {/* 窄屏（<1024）这块板退回普通文档流、高度由内容决定，此时 flex-1
+                  的 flex-basis:0% 会盖掉 h-[260px]，父容器又没有多余空间可分，
+                  地球就被压成 0 高裁没了 —— 所以窄屏用 flex-none 认住 260px，
+                  宽屏才切回 flex-1 让它撑满右栏。 */}
+              <div className="relative h-[260px] min-h-0 flex-none overflow-hidden rounded-[10px] border-2 border-black/50 bg-[#060b23] lg:h-auto lg:flex-1">
                 <GridGlobe />
               </div>
 

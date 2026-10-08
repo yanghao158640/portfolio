@@ -185,9 +185,15 @@ export function Globe({ globeConfig, data }: WorldProps) {
       .arcDashGap(15)
       .arcDashAnimateTime((e) => defaultProps.arcTime);
 
+    /* 点阵画在弧线的两个端点上，所以数据要用 _buildData() 去过重的那张表 ——
+       它才有 lat / lng。原先这里传的是原始 data，而那批对象只有
+       startLat / startLng，没有 lat / lng；three-globe 默认按 'lat' / 'lng'
+       取值，取到 undefined，坐标算成 NaN，于是每帧渲染都报
+       「computeBoundingSphere(): Computed radius is NaN」。
+       globeData 的 color 是 (t) => rgba(...)，取 t=0 就是完全不透明的那一档。 */
     globeRef.current
-      .pointsData(data)
-      .pointColor((e) => (e as { color: string }).color)
+      .pointsData(globeData)
+      .pointColor((e) => (e as { color: (t: number) => string }).color(0))
       .pointsMerge(true)
       .pointAltitude(0.0)
       .pointRadius(2);

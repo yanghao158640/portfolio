@@ -25,6 +25,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# 本地预览服务的日志（起 dev / prod 预览时会生成在根目录）
+.preview-*.log
+.preview-*.err.log
+
 # local env files
 .env*.local
 

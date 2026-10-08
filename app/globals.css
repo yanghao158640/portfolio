@@ -311,6 +311,102 @@
     transform: translateY(1px);
     box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
   }
+
+  /* 次按钮变体 · 中心铺开
+     改自 uiverse.io/adamgiebl/popular-termite-0（MIT）：
+     悬停时色块从正中间向两侧张开，把空心按钮填实。
+     用 background-size 而不是伪元素 —— 图标和文字天然压在色块之上，
+     不用为 z-index 再套一层，MagicButton 现有结构就能直接用。 */
+  .toy-btn-fill {
+    background-color: #10143a;
+    background-image: linear-gradient(
+      rgb(var(--board-accent, 203 172 249)),
+      rgb(var(--board-accent, 203 172 249))
+    );
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 0% 100%;
+    color: #ffffff;
+    border: 2px solid rgb(var(--board-accent, 203 172 249));
+    border-radius: 10px;
+    box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.5);
+    font-weight: 700;
+    transition: background-size 0.45s ease, color 0.3s ease,
+      transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .toy-btn-fill:hover {
+    background-size: 100% 100%;
+    color: #070a1e;
+  }
+  .toy-btn-fill:active {
+    transform: translateY(1px);
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  /* 次按钮变体 · 边框滑轨
+     改自 uiverse.io/cssbuttons-io/brown-otter-21（MIT）：
+     描边上留几段短线，悬停时短线滑走、底色翻成展位色。
+     作品卡整张就是链接，所以动效由卡片的悬停驱动（.proj-card），
+     而不是这块元素自己 —— 鼠标落在卡片任何位置，它都会亮起来。 */
+  .toy-keys {
+    position: relative;
+    display: inline-flex;
+    height: 34px;
+    align-items: center;
+    padding: 0 16px;
+    border: 2px solid rgb(var(--board-accent, 203 172 249) / 0.65);
+    border-radius: 8px;
+    color: #ffffff;
+    font-weight: 700;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  .toy-keys::before {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    width: 20px;
+    height: 2px;
+    content: "";
+    background: rgb(var(--board-accent, 203 172 249));
+    transform: translateY(-50%);
+    transition: width 0.3s linear, background 0.3s linear;
+  }
+  .toy-keys .toy-key {
+    position: absolute;
+    height: 2px;
+    background: rgb(var(--board-accent, 203 172 249));
+    transition: width 0.5s ease-out, left 0.3s ease-out, right 0.3s ease-out;
+  }
+  .toy-keys .toy-key-top {
+    top: -2px;
+    left: 10px;
+    width: 20px;
+  }
+  .toy-keys .toy-key-bottom {
+    bottom: -2px;
+    right: 10px;
+    width: 20px;
+  }
+  .toy-keys-text {
+    display: inline-flex;
+    align-items: center;
+    padding-left: 20px;
+    transition: padding-left 0.3s ease;
+  }
+  .proj-card:hover .toy-keys {
+    background: rgb(var(--board-accent, 203 172 249));
+    color: #070a1e;
+  }
+  .proj-card:hover .toy-keys::before {
+    width: 10px;
+    background: #070a1e;
+  }
+  .proj-card:hover .toy-keys .toy-key {
+    width: 0;
+  }
+  .proj-card:hover .toy-keys-text {
+    padding-left: 10px;
+  }
 }
 
 @layer utilities {
