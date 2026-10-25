@@ -112,6 +112,7 @@ const ProjectDetail = ({
               {project.linkLabel}
               <FaArrowUpRightFromSquare className="ms-2 text-[11px]" />
             </a>
+            {project.repo && <a href={project.repo} target="_blank" rel="noopener noreferrer" className="pdv-dismiss">查看源码</a>}
             <button type="button" className="pdv-dismiss" onClick={onClose}>
               先看别的
             </button>
@@ -124,6 +125,11 @@ const ProjectDetail = ({
 
 const RecentProjects = () => {
   const [active, setActive] = useState<Project | null>(null);
+  const [category, setCategory] = useState("全部作品");
+  const [page, setPage] = useState(0);
+  const filtered = category === "全部作品" ? projects : projects.filter(p => p.category === category);
+  const pages = Math.max(1, Math.ceil(filtered.length / 3));
+  const visible = filtered.slice(page * 3, page * 3 + 3);
   const close = useCallback(() => setActive(null), []);
 
   return (
@@ -134,11 +140,14 @@ const RecentProjects = () => {
             挑几个我做出来的<span className="text-purple"> 东西</span>
           </h2>
           <p className="board-sub">
-            都能在线打开、直接玩或用。点卡片先看「我做了什么」，想玩再点出去。
+            专业实践与 AI 应用优先展示。点卡片了解实现与边界，也可直接打开作品。
           </p>
+          <div className="project-categories" aria-label="作品分类">
+            {["全部作品", "环境工程", "AI应用", "互动游戏", "课程学习"].map(label => <button key={label} type="button" aria-pressed={category === label} onClick={() => { setCategory(label); setPage(0); }}>{label}</button>)}
+          </div>
 
           <div className="mt-6 grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((item) => (
+            {visible.map((item) => (
               <div
                 key={item.id}
                 className="brick proj-card group flex min-h-0 flex-col overflow-hidden
@@ -170,6 +179,7 @@ const RecentProjects = () => {
                   </div>
 
                   <div className="border-t-2 border-black/50 p-4">
+                    <span className="project-category-label">{item.category}</span>
                     <h3 className="text-[15px] font-bold leading-snug">
                       {item.title}
                     </h3>
@@ -212,6 +222,7 @@ const RecentProjects = () => {
               </div>
             ))}
           </div>
+          <div className="project-pagination" aria-label="作品分页"><span>共 {filtered.length} 项 · 第 {page+1}/{pages} 页</span><div><button type="button" disabled={page===0} onClick={()=>setPage(p=>p-1)}>上一页</button><button type="button" disabled={page+1>=pages} onClick={()=>setPage(p=>p+1)}>下一页</button></div></div>
         </div>
       </div>
 

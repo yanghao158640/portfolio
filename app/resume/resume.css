@@ -276,6 +276,8 @@
   font-size: 9pt;
   color: var(--rs-muted);
 }
+.rs-extra {margin-top:2mm;font-size:9pt;line-height:1.7;color:var(--rs-muted)}
+.rs-extra a {color:var(--rs-accent)}
 
 /* ------------------------------ 打印 ------------------------------ */
 

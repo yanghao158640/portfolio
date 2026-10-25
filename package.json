@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "resume:pdf": "node scripts/export-resume-pdf.mjs",
-    "deploy": "vercel --prod"
+    "resume:pdf": "node scripts/export-resume.mjs",
+    "deploy": "node scripts/sync-pages.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.105.4",

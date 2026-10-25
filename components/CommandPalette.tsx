@@ -13,7 +13,7 @@ import {
   FaMagnifyingGlass,
 } from "react-icons/fa6";
 
-import { navItems, profile } from "@/data";
+import { navItems, profile, projects } from "@/data";
 import { enterRoom } from "@/lib/spatial";
 
 /**
@@ -117,6 +117,7 @@ const CommandPalette = () => {
   ];
 
   const actions: Action[] = [
+    ...projects.filter(project=>[4,5].includes(project.id)).map(project=>({id:`project-${project.id}`,label:project.title,hint:project.category,icon:<FaArrowDown/>,group:"作品",keywords:`${project.title} ${project.tags.join(" ")}`,run:()=>window.open(project.link,"_blank","noopener,noreferrer")})),
     {
       id: "resume-pdf",
       label: "下载简历 PDF",

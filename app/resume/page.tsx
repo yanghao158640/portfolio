@@ -16,10 +16,9 @@ import "./resume.css";
  * ---------------------------------------------------------------------------
  * 一页纸 A4 简历，内容全部来自 data/index.ts，不额外维护第二份文案。
  *
- * 它同时是两个东西：
- *   1. 访客点「下载简历」时拿到的 PDF 的来源 —— 用 scripts/export-resume-pdf.mjs
- *      以无头 Edge 打开本页、按 CSS 里的 @page 打印成 public/resume/*.pdf；
- *   2. 一个可以直接在线看的白底页面（访客也可以自己 Ctrl/⌘ + P 存成 PDF）。
+ * 这是可在线阅读、可用 Ctrl/⌘ + P 打印的白底页面。
+ * 下载 PDF 由 scripts/export-resume.mjs 使用同一份内容数据生成，
+ * 布局在 scripts/build-resume-pdf.py 维护。
  *
  * 所以这里的排版规则只有一条：打印出来什么样，屏幕上就什么样（.rs-page 在屏幕
  * 上是带阴影的一张 A4 纸，打印时纸边距交给 @page）。
@@ -40,6 +39,8 @@ const CERT_BATCH = "2026.07";
 const resumeExperiences = experiences.filter((item) =>
   RESUME_EXPERIENCE_IDS.includes(item.id)
 );
+const resumeProjects = projects.filter(item => [4, 5, 3].includes(item.id));
+const games = projects.filter(item => item.category === "互动游戏");
 
 const skillLine = [...skills]
   .sort((a, b) => b.level - a.level)
@@ -98,10 +99,10 @@ const ResumePage = () => {
           <div className="rs-main">
             <section className="rs-sec">
               <h2 className="rs-h2">
-                代表作品<small>3 个可在线访问的项目</small>
+                代表作品<small>{resumeProjects.length} 项重点项目</small>
               </h2>
               <ul className="rs-list">
-                {projects.map((project) => (
+                {resumeProjects.map((project) => (
                   <li key={project.id}>
                     <div className="rs-item-head">
                       <b>{project.title}</b>
@@ -112,6 +113,7 @@ const ResumePage = () => {
                   </li>
                 ))}
               </ul>
+              <p className="rs-extra">其他可体验作品：{games.map((project,i)=><span key={project.id}>{i>0?" · ":""}<a href={project.link}>{project.title}</a></span>)}</p>
             </section>
 
             <section className="rs-sec">

@@ -15,21 +15,10 @@ export type NavItem = {
   link: string;
 };
 
-export type GridItem = {
-  /** 1–6 与 BentoGrid 内的排版特效一一对应，请勿改动 */
-  id: number;
-  title: string;
-  description: string;
-  /** 卡片在网格中占几行几列 */
-  className: string;
-  img?: string;
-  imgClassName?: string;
-  titleClassName?: string;
-  spareImg?: string;
-};
-
 export type Project = {
   id: number;
+  category: "环境工程" | "AI应用" | "互动游戏" | "课程学习";
+  repo?: string;
   title: string;
   des: string;
   /** 封面图，换成自己的截图时把文件放进 public/ 再改这里 */
@@ -121,7 +110,7 @@ export const profile = {
   intro:
     "我不满足于「会用工具」，而是习惯把想法真正变成能用的东西 —— 网站、小游戏、自动化脚本，以及被别人拿去用的海报和文稿。",
   /** 近况，显示在技能区下方 */
-  nowDoing: "搭建个人作品站，把坦克大战、飞机大战与机器学习汇报整理成可在线体验的作品集。",
+  nowDoing: "持续完善污水处理工艺模拟器与「先学一点」学习规划工具，把环境工程知识和真实使用反馈转化为可体验的作品。",
   nowReading: "吴恩达《机器学习》配套资料，以及关于 AI 工作流与产品设计的书。",
   /** 联系区文案 */
   contactTitle: "愿意聊聊，或者一起做点什么？",
@@ -129,12 +118,7 @@ export const profile = {
     "这只是一个起点 —— 我的能力与作品仍在快速生长。欢迎前辈与伙伴来交流，把想法碰撞成更多可能。",
 };
 
-export const stats: Stat[] = [
-  { id: 1, value: "8", unit: "项", label: "AI 领域认证" },
-  { id: 2, value: "3", unit: "个", label: "在线可访问作品" },
-  { id: 3, value: "2", unit: "款", label: "可试玩小游戏" },
-  { id: 4, value: "2026", unit: "级", label: "本科在读" },
-];
+
 
 /** 顺序与 app/page.tsx 里的区块顺序、3D 长廊里的房间顺序一致 */
 export const navItems: NavItem[] = [
@@ -147,72 +131,6 @@ export const navItems: NavItem[] = [
   { name: "联系", link: "#contact" },
 ];
 
-/* ========================= 关于我（Bento 网格） ========================= */
-
-export const gridItems: GridItem[] = [
-  {
-    id: 1,
-    title:
-      "把想法真正变成能用的东西 —— 网站、小游戏、自动化脚本，还有被别人拿去用的海报和文稿。",
-    description: "关于我",
-    className: "lg:col-span-3 md:col-span-6 md:row-span-4 lg:min-h-[60vh]",
-    imgClassName: "w-full h-full",
-    titleClassName: "justify-end",
-    img: "/b1.svg",
-    spareImg: "",
-  },
-  {
-    id: 2,
-    title: "河南 · 郑州",
-    description: "常驻",
-    className: "lg:col-span-2 md:col-span-3 md:row-span-2",
-    imgClassName: "",
-    titleClassName: "justify-start",
-    img: "",
-    spareImg: "",
-  },
-  {
-    id: 3,
-    title: "工具与技术栈",
-    description: "我在用它们把想法落地",
-    className: "lg:col-span-2 md:col-span-3 md:row-span-2",
-    imgClassName: "",
-    titleClassName: "justify-center",
-    img: "",
-    spareImg: "",
-  },
-  {
-    id: 4,
-    title: "在环境工程与 AI 之间做交叉探索",
-    description: "",
-    className: "lg:col-span-2 md:col-span-3 md:row-span-1",
-    imgClassName: "",
-    titleClassName: "justify-start",
-    img: "/grid.svg",
-    spareImg: "/b4.svg",
-  },
-  {
-    id: 5,
-    title: "最近在做：把这个作品站搭好",
-    description: "近况",
-    className: "md:col-span-3 md:row-span-2",
-    imgClassName: "absolute right-0 bottom-0 md:w-96 w-60",
-    titleClassName: "justify-center md:justify-start lg:justify-center",
-    img: "/b5.svg",
-    spareImg: "/grid.svg",
-  },
-  {
-    id: 6,
-    title: "要不要一起做点什么？",
-    description: "",
-    className: "lg:col-span-2 md:col-span-3 md:row-span-1",
-    imgClassName: "",
-    titleClassName: "justify-center md:max-w-full max-w-60 text-center",
-    img: "",
-    spareImg: "",
-  },
-];
-
 /** 关于我卡片里滚动的工具标签 */
 export const toolStack: { left: string[]; right: string[] } = {
   left: ["DeepSeek", "Kimi", "通义千问"],
@@ -223,7 +141,69 @@ export const toolStack: { left: string[]; right: string[] } = {
 
 export const projects: Project[] = [
   {
+    id: 4,
+    category: "环境工程",
+    title: "城市污水处理厂 A²/O 工艺模拟器",
+    des: "把环境工程专业知识做成可操作的教学工具：调整工艺参数，观察沿程水质、设备负荷、能耗与成本的联动。",
+    img: "/works/shots/wwtp-simulator.png",
+    tags: ["环境工程", "工艺模拟", "JavaScript"],
+    link: "https://hsbx9017-dot.github.io/wwtp-simulator/",
+    repo: "https://github.com/hsbx9017-dot/wwtp-simulator",
+    linkLabel: "打开模拟器",
+    detail: {
+      summary: "围绕城市污水处理流程，借助 AI 把工艺计算、设备示意和运行工况整合成浏览器教学工具。用于学习与方案比较，不替代实际工程设计。",
+      points: [
+        "从进水、生化处理到深度处理、消毒和污泥线，按流程展示物料与水质变化",
+        "参数调整后联动计算水质、能耗、药耗和吨水成本，帮助理解运行取舍",
+        "23台主要设备的剖面示意与部件说明，关联当前工况的设备负荷",
+        "预设冬季、雨季、低负荷等场景，支持表格和报告导出",
+        "明确采用简化教学模型，尚未用具体污水厂实测数据率定",
+      ],
+      tryThis: "先比较设计工况和冬季低温工况，观察氨氮与运行参数的变化，再打开设备模型库查看曝气、回流等设备的作用。",
+    },
+  },
+  {
+    id: 5,
+    category: "AI应用",
+    title: "先学一点 · 可调整的学习规划工具",
+    des: "为大学生减少学习决策负担：引导目标与材料选择，按周拆解长期目标，支持复盘、历史记录与匿名反馈。",
+    img: "/works/shots/xianxue-yidian.png",
+    tags: ["React", "DeepSeek", "产品迭代"],
+    link: "https://hsbx9017-dot.github.io/xianxue-yidian/",
+    repo: "https://github.com/hsbx9017-dot/xianxue-yidian",
+    linkLabel: "体验学习工具",
+    detail: {
+      summary: "从“觉得安排学习太麻烦”的需求出发，借助 AI 将想法做成可使用的产品，并根据试用意见持续完善材料、执行步骤和长期记录。",
+      points: [
+        "分别引导明确目标与模糊想法，记录教材版次、课程、基础和真实可用时间",
+        "提供具体资源入口与准备、动手、检查步骤，解释缩小范围的取舍",
+        "支持1至52周目标路线、每周复盘、历史计划、完成记录与备份恢复",
+        "访客使用自己的DeepSeek密钥；另提供明确标注的规则体验版",
+        "学习档案保存在本机浏览器，反馈单独提交并由本地管理端查看",
+      ],
+      tryThis: "不用填写密钥也能试用：选一个学习目标和周期，生成规则体验计划，再看“学习档案”和“复盘并安排下一周”；AI生成需使用自己的API额度。",
+    },
+  },
+  {
+    id: 3,
+    category: "课程学习",
+    title: "吴恩达《机器学习》学习汇报",
+    des: "13 页 HTML 交互式演示文稿，把课程核心概念与实践理解整理成可在线翻阅的汇报材料。",
+    img: "/works/shots/ml-report.png",
+    tags: ["HTML", "演示文稿", "机器学习"],
+    link: "https://yanghao158640.github.io/competition-bootcamp/ml-report/",
+    repo: "https://github.com/yanghao158640/competition-bootcamp",
+    linkLabel: "在线查看",
+    detail: {
+      summary: "把吴恩达《机器学习》课程的核心概念，整理成一份不用下载、打开就能翻的汇报材料。",
+      points: ["13页HTML演示文稿，在线翻阅", "按自己的学习理解组织课程概念", "不依赖PowerPoint或专用演示工具"],
+      tryThis: "从第一页往下翻，查看课程概念如何拆解为可讲述的内容。",
+    },
+  },
+  {
     id: 1,
+    category: "互动游戏",
+    repo: "https://github.com/yanghao158640/competition-bootcamp",
     title: "坦克大战",
     des: "Canvas 单文件实现的经典坦克对战：键盘操控、敌军 AI 生成、碰撞检测与关卡节奏，纯原生 JavaScript 无依赖。",
     img: "/works/shots/tank-game.png",
@@ -246,6 +226,8 @@ export const projects: Project[] = [
   },
   {
     id: 2,
+    category: "互动游戏",
+    repo: "https://github.com/yanghao158640/plane-game",
     title: "飞机大战",
     des: "战机操控、敌机与 BOSS 刷新、碰撞判定与计分系统，逐帧循环驱动的完整小游戏。",
     img: "/works/shots/plane-battle.png",
@@ -263,26 +245,6 @@ export const projects: Project[] = [
       ],
       tryThis:
         "打到 BOSS 出现的那一关。那里是刷新节奏和碰撞判定最吃紧的地方，也是这一版相比上一款进步最大的部分。",
-    },
-  },
-  {
-    id: 3,
-    title: "吴恩达《机器学习》学习汇报",
-    des: "13 页 HTML 交互式演示文稿，把课程核心概念与实践理解整理成可在线翻阅的汇报材料。",
-    img: "/works/shots/ml-report.png",
-    tags: ["HTML", "演示文稿", "机器学习"],
-    link: "https://yanghao158640.github.io/competition-bootcamp/ml-report/",
-    linkLabel: "在线查看",
-    detail: {
-      summary:
-        "把吴恩达《机器学习》课程的核心概念，整理成一份不用下载、打开就能翻的汇报材料。",
-      points: [
-        "13 页 HTML 演示文稿，做成能直接在线翻阅的形式",
-        "概念是按自己的理解重新组织的，不是把讲义照搬一遍",
-        "纯 HTML 实现，不依赖 PowerPoint 或任何演示工具",
-      ],
-      tryThis:
-        "从第一页往下翻。看的是「一个概念被怎么拆开重讲」——同一份讲义，讲法能看出理解到哪一层。",
     },
   },
 ];
@@ -444,6 +406,13 @@ export const certifications: Certification[] = [
 ];
 
 /* ============================== 联系方式 ============================== */
+
+export const stats: Stat[] = [
+  { id: 1, value: String(certifications.length), unit: "项", label: "AI 领域认证" },
+  { id: 2, value: String(projects.length), unit: "个", label: "在线可访问作品" },
+  { id: 3, value: "2", unit: "款", label: "可试玩小游戏" },
+  { id: 4, value: "2026", unit: "级", label: "本科在读" },
+];
 
 export const socials: Social[] = [
   {

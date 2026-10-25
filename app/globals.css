@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+.project-categories{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;flex-shrink:0}.project-categories button,.project-pagination button{border:1px solid rgba(203,172,249,.35);border-radius:6px;padding:5px 10px;font-size:11px;color:#c9c4e4;background:#141632}.project-categories button[aria-pressed=true]{color:#fff;background:#614584;border-color:#c5a3f0}.project-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;color:#b2accb;margin-top:12px;flex-shrink:0}.project-pagination>div{display:flex;gap:8px}.project-pagination button:disabled{opacity:.35;cursor:default}.project-category-label{display:block;font-size:10px;letter-spacing:.08em;color:#c8acf0;margin-bottom:5px}html.spatial-on [data-board=projects] .proj-card h3{font-size:14px}html.spatial-on [data-board=projects] .proj-card .p-4{padding:12px}html.spatial-on [data-board=projects] .proj-card .mt-2{margin-top:5px}html.spatial-on [data-board=projects] .proj-card .mt-3{margin-top:7px}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

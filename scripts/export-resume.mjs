@@ -1,0 +1,16 @@
+import {readFileSync,writeFileSync,mkdirSync,existsSync,copyFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {resolve,join} from 'node:path';
+import {homedir} from 'node:os';
+import ts from 'typescript';
+const js=ts.transpile(readFileSync('data/index.ts','utf8'),{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022});
+const {profile,projects,experiences,certifications,skills,toolStack}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+mkdirSync('tmp/pdfs',{recursive:true});mkdirSync('output/pdf',{recursive:true});
+const input=resolve('tmp/pdfs/resume-data.json'),output=resolve('output/pdf/yangyuhao-resume.pdf');
+writeFileSync(input,JSON.stringify({profile,projects,experiences,certifications,skills,toolStack}));
+const bundled=join(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe');
+const python=process.env.PORTFOLIO_PYTHON||(existsSync(bundled)?bundled:'python');
+const result=spawnSync(python,['scripts/build-resume-pdf.py',input,output],{stdio:'inherit'});
+if(result.status!==0)throw Error('PDF generation failed. Python requires reportlab and pypdf.');
+mkdirSync('public/resume',{recursive:true});copyFileSync(output,'public/resume/yangyuhao-resume.pdf');
+console.log('Updated public PDF and downloadable output from the same data/index.ts content.');
