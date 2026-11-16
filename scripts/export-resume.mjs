@@ -14,5 +14,5 @@ const bundled=join(homedir(),'.cache/codex-runtimes/codex-primary-runtime/depend
 const python=process.env.PORTFOLIO_PYTHON||(existsSync(bundled)?bundled:'python');
 const result=spawnSync(python,['scripts/build-resume-pdf.py',input,output],{stdio:'inherit'});
 if(result.status!==0)throw Error('PDF generation failed. Python requires reportlab and pypdf.');
-mkdirSync('public/resume',{recursive:true});copyFileSync(output,'public/resume/yangyuhao-resume.pdf');
+mkdirSync('public/resume',{recursive:true});copyFileSync(output,'public/resume/yangyuhao-resume-2026-film.pdf');
 console.log('Updated public PDF and downloadable output from the same data/index.ts content.');

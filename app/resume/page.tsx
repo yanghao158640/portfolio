@@ -66,7 +66,7 @@ const ResumePage = () => {
         </span>
         <a
           className="rs-hint-btn"
-          href="/resume/yangyuhao-resume.pdf"
+          href="/resume/yangyuhao-resume-2026-film.pdf"
           download="杨豫豪-简历.pdf"
         >
           下载 PDF
