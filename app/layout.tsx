@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import "./globals.css";
+import "./creative.css";
 import { profile } from "@/data";
 import { ThemeProvider } from "./provider";
 

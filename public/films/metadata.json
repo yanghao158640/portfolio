@@ -1,0 +1,27 @@
+[
+  {
+    "episode": 1,
+    "duration": 67.96,
+    "originalBytes": 105669736
+  },
+  {
+    "episode": 2,
+    "duration": 61.46,
+    "originalBytes": 96667799
+  },
+  {
+    "episode": 3,
+    "duration": 60.6,
+    "originalBytes": 94628641
+  },
+  {
+    "episode": 4,
+    "duration": 60.56,
+    "originalBytes": 76625137
+  },
+  {
+    "episode": 5,
+    "duration": 60.02,
+    "originalBytes": 70911132
+  }
+]
