@@ -2,6 +2,7 @@ export const filmSeries = {
   title: "每次救女儿，我都会失去记忆",
   world: "海妖囚岛",
   format: "AI 短剧 / 竖屏影像",
+  link: "https://yanghao158640.github.io/#films",
   description: "一次营救，一次遗忘。把关于记忆与牵挂的想象，变成可以被看见的故事。",
 };
 

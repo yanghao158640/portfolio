@@ -20,15 +20,17 @@ def p(text,kind='body'):return Paragraph(escape(str(text)),styles[kind])
 def link(label,url):return '<link href="'+escape(url,{'"':'&quot;'})+'" color="#146454">'+escape(label)+'</link>'
 pr=d['profile'];head=Table([[[p(pr['name'],'name'),p(pr['role'],'role')],[p(pr['phone']+' | '+pr['email'],'small'),p(pr['location'],'small'),Paragraph(link('yanghao158640.github.io','https://yanghao158640.github.io/'),styles['small'])]]],colWidths=[290,225])
 head.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),12),('LINEBELOW',(0,0),(-1,-1),1.2,accent)]))
-story=[head,Spacer(1,10),p(pr['school']+pr['major']+'专业本科在读，借助 AI 工具将学习和产品想法做成可体验的作品。代表项目覆盖污水处理教学模拟、学习规划工具与机器学习课程汇报；持续根据使用反馈改进功能。')]
+story=[head,Spacer(1,6),p(pr['school']+pr['major']+'专业本科在读，探索 AI 与创意表达，把想法做成可体验的影像与工具。作品涵盖 AI 短剧、污水处理教学模拟、学习规划工具与课程汇报。')]
 main=[p('代表作品 | 专业实践与 AI 应用','heading')]
+film=d['filmSeries']
+main.extend([p(film['world']+' · '+film['title'],'item'),p(film['format']+'，共 '+str(len(d['episodes']))+' 集。以记忆与牵挂为主题的竖屏影像作品。'),Paragraph(link('在线观看五集',film['link']),styles['small'])])
 for x in d['projects']:
  if x['id'] in [4,5,3]:
   main.extend([p(x['title'],'item'),p(x['des']),Paragraph(link(x['linkLabel'],x['link'])+' | '+link('项目源码',x['repo']),styles['small']),p(' / '.join(x['tags']),'small')])
 main.append(Paragraph('其他作品：'+' / '.join(link(x['title'],x['link']) for x in d['projects'] if x['category']=='互动游戏'),styles['small']))
 main.append(p('实践经历','heading'))
 for x in d['experiences']:
- if x['id'] in [1,2,3,4]:main.extend([p(x['title']+' | '+x['period'],'item'),p(x['desc'])])
+ if x['id'] in [1,2,3]:main.extend([p(x['title']+' | '+x['period'],'item'),p(x['desc'])])
 side=[p('教育背景','heading'),p(pr['school'],'item'),p(pr['major']+' | 2026级本科在读'),p('方向：环境工程知识的可视化表达与 AI 工具应用。','small'),p('AI 领域认证 | '+str(len(d['certifications']))+'项','heading')]
 for x in d['certifications']:side.extend([p(x['title'],'item'),p(x['issuer']+' | '+x['date'],'small')])
 table=Table([[main,side]],colWidths=[331,184]);table.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(0,0),0),('RIGHTPADDING',(0,0),(0,0),16),('LEFTPADDING',(1,0),(1,0),14),('RIGHTPADDING',(1,0),(1,0),0),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0),('LINEBEFORE',(1,0),(1,0),.5,colors.HexColor('#d8e0dd'))]))
@@ -37,6 +39,6 @@ doc=SimpleDocTemplate(out,pagesize=A4,leftMargin=40,rightMargin=40,topMargin=30,
 r=PdfReader(out)
 if len(r.pages)!=1:raise RuntimeError('Resume must fit one page; got '+str(len(r.pages)))
 urls=[a.get_object().get('/A',{}).get('/URI') for page in r.pages for a in page.get('/Annots',[])]
-for url in ['https://hsbx9017-dot.github.io/wwtp-simulator/','https://hsbx9017-dot.github.io/xianxue-yidian/']:
+for url in ['https://hsbx9017-dot.github.io/wwtp-simulator/','https://hsbx9017-dot.github.io/xianxue-yidian/',film['link']]:
  if url not in urls:raise RuntimeError('Missing project link in PDF')
 print('One-page PDF created; both project hyperlinks verified.')

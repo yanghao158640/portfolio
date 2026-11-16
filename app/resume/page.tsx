@@ -10,6 +10,7 @@ import {
 } from "@/data";
 
 import "./resume.css";
+import { filmSeries, episodes } from "@/data/films";
 
 /**
  * 简历打印页
@@ -51,7 +52,7 @@ const tools = [...toolStack.left, ...toolStack.right];
 
 const summary =
   `${profile.school}${profile.major}专业在读本科生，习惯把想法做成能用的东西 —— ` +
-  `网站、小游戏与自动化脚本。系统使用 ${tools.join("、")} 等 AI 工具，` +
+  `AI 短剧、网站、小游戏与自动化脚本。系统使用 ${tools.join("、")} 等 AI 工具，` +
   `覆盖提示词工程、智能体搭建、大模型微调与数据分析，` +
   `已获 ${certifications.length} 项 AI 领域专业认证。`;
 
@@ -99,9 +100,10 @@ const ResumePage = () => {
           <div className="rs-main">
             <section className="rs-sec">
               <h2 className="rs-h2">
-                代表作品<small>{resumeProjects.length} 项重点项目</small>
+                代表作品<small>{resumeProjects.length + 1} 项重点项目</small>
               </h2>
               <ul className="rs-list">
+                <li><div className="rs-item-head"><b>{filmSeries.world} · {filmSeries.title}</b><a href={filmSeries.link}>在线观看</a></div><p className="rs-desc">{filmSeries.format}，共 {episodes.length} 集。以记忆与牵挂为主题的竖屏影像作品。</p></li>
                 {resumeProjects.map((project) => (
                   <li key={project.id}>
                     <div className="rs-item-head">
