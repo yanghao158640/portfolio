@@ -28,6 +28,14 @@ export type Project = {
   link: string;
   /** 卡片右上角悬浮时显示的文字 */
   linkLabel: string;
+  caseStudy?: {
+    role: string;
+    completed: string;
+    problem: string;
+    approach: string;
+    result: string;
+    highlights: string[];
+  };
   /**
    * 详情层的内容。面试官看到的往往只是一个能玩的游戏，
    * 却不知道你在里面具体做了什么 —— 这几段就是补上这一层。
@@ -150,6 +158,14 @@ export const projects: Project[] = [
     link: "https://hsbx9017-dot.github.io/wwtp-simulator/",
     repo: "https://github.com/hsbx9017-dot/wwtp-simulator",
     linkLabel: "打开模拟器",
+    caseStudy: {
+      role: "独立开发 · AI 辅助",
+      completed: "2026.10",
+      problem: "课本里的工艺流程很抽象，单看公式难以理解参数之间的影响。",
+      approach: "把 A²/O 流程、设备示意与工艺计算放进同一个可调参数的交互界面。",
+      result: "做成可在线操作的教学模拟器，联动查看水质、能耗与吨水成本。",
+      highlights: ["23 台设备剖面示意", "冬季 / 雨季等工况对比"],
+    },
     detail: {
       summary: "围绕城市污水处理流程，借助 AI 把工艺计算、设备示意和运行工况整合成浏览器教学工具。用于学习与方案比较，不替代实际工程设计。",
       points: [
@@ -172,6 +188,14 @@ export const projects: Project[] = [
     link: "https://hsbx9017-dot.github.io/xianxue-yidian/",
     repo: "https://github.com/hsbx9017-dot/xianxue-yidian",
     linkLabel: "体验学习工具",
+    caseStudy: {
+      role: "独立开发 · AI 辅助",
+      completed: "2026.10",
+      problem: "有学习目标，却常卡在选材料、排时间和决定下一步做什么。",
+      approach: "把目标、基础和可用时间转成每周步骤，再接上复盘与历史记录。",
+      result: "做成可持续调整的学习规划工具，支持规则体验和 DeepSeek 生成。",
+      highlights: ["1–52 周目标路线", "每周复盘与学习档案"],
+    },
     detail: {
       summary: "从“觉得安排学习太麻烦”的需求出发，借助 AI 将想法做成可使用的产品，并根据试用意见持续完善材料、执行步骤和长期记录。",
       points: [
